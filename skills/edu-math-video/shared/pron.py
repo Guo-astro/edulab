@@ -158,7 +158,7 @@ def to_tts(text, sep=" "):
 def lint(text):
     """Characters in `text` (markup allowed) whose reading nothing pins down: rare ones and polyphones."""
     s = MARK.sub(lambda m: "\0" * len(m.group(0)), text)  # marked spans are fine
-    for w in [*WORDS, *OK]:
+    for w in sorted([*WORDS, *OK], key=len, reverse=True):  # longest first: 折射率 before 折射
         s = s.replace(w, "\0" * len(w))
     ctx = [None] * len(s)  # contextual guess, one per character (pinyin() lumps non-han runs together)
     for m in re.finditer(r"[一-鿿]+", s):
