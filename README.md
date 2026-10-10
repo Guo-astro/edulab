@@ -134,7 +134,7 @@ python3 lib/reaction_kernel.py                              # kernel built-in se
 
 ## Skill: edu-math-video
 
-![edu-math-video demo](edu-math-video.png)
+![edu-math-video demo](edu-math-video.jpg)
 
 Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer MP4**: Chinese voice-over (Zhipu **GLM-TTS**), bilingual zh + en subtitles (`.srt` too), and hand-drawn notebook-style canvas animation driven by the narration timeline. Input is a problem screenshot or plain text.
 
@@ -166,6 +166,69 @@ cd my_problem
 python3 build_audio.py --check                                      # script + pronunciation lint (free)
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
 python3 build_audio.py && node render.mjs video 6                   # real TTS, then render (6 = parallel pages)
+```
+
+## Skill: edu-physics-video
+
+![edu-physics-video demo](edu-physics-video.jpg)
+
+Turns one physics problem (mechanics, optics, electromagnetism…) into a **16:9 1920×1080 explainer MP4**: Chinese voice-over (Zhipu **GLM-TTS**), bilingual zh + en subtitles (`.srt` too), and blueprint-style canvas animation driven by the narration timeline. Input is a problem screenshot or plain text. Same pipeline as edu-math-video; what changes is the solving method and the picture.
+
+**The picture follows the physics**: model the object, split the motion into segments, draw the forces, pick a law, solve, then check. Force arrows grow from the point of application on one scale, the object moves on the analytic solution `x(t)` through a linear `simT()` map, the v–t graph grows in sync, and friction reverses when the relative motion does. Timed by `S.at(k, f)`.
+
+**Pipeline** (one folder per video, created in the user's current directory):
+
+```
+script.json ──build_audio.py──► timeline.json + mix.wav + <name>.srt   (GLM-TTS + synthesized music)
+anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4    (Playwright + ffmpeg, 30 fps)
+```
+
+**Guard rails**: the first scene shows the original problem with each condition boxed as it is read; `tts` text must be speakable Chinese (units read aloud; no digits or math symbols; θ is 西塔); polyphones are pinned and `--check` must report 0 before any paid TTS call; a free `--preview` plus a contact-sheet review comes before real audio; `--asr` transcribes the audio back to catch misread letters. Shared physics props go in `phys.js`. Leave `engine.js` unchanged.
+
+**Trigger words**: physics explainer video, force diagram, Newton's laws, incline, projectile, circular motion, energy, momentum, refraction; 物理题视频、受力分析、牛顿定律、斜面、平抛、圆周、能量、动量、折射 etc.
+
+### Dependency
+
+Same as edu-math-video: Python 3 with `numpy requests pypinyin pillow`, Node.js 18+ with `playwright` + `ffmpeg-static`, and a Zhipu **`GLM_API_KEY`** in `~/.config/math-problem-video/.env` (shared by all three video skills). No key → `TTS_ENGINE=auto` falls back to [edge-tts](https://github.com/rany2/edge-tts), then macOS `say`.
+
+### Run the pipeline by hand (without Claude)
+
+```bash
+bash skills/edu-physics-video/scripts/new_video.sh "$PWD" my_problem
+bash skills/edu-physics-video/scripts/setup_check.sh my_problem        # must print ALL OK
+cd my_problem
+python3 build_audio.py --check
+python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
+python3 build_audio.py && node render.mjs video 6
+```
+
+## Skill: edu-chem-video
+
+![edu-chem-video demo](edu-chem-video.jpg)
+
+Turns one chemistry problem (redox balancing and the double-line bridge, amount of substance, equilibrium and the ICE table, ionic reactions, electrochemistry, titration, industrial processes…) into a **16:9 1920×1080 explainer MP4** with the same voice-over and bilingual subtitles, drawn on a **green chalkboard**. The balanced equation stays pinned in a strip at the top; the demo sits on the left and the slate on the right.
+
+**The equation does the explaining, and conservation is counted on screen**: oxidation numbers rise and fall on a number line, electrons group until the counts match, coefficients fly from the electron row into the equation, atom tallies check off, the double-line bridge shows electron flow, molecule boxes react in the coefficient ratio, and the ICE table fills row by row. `scripts/chem_check.py` checks the balance and atom / charge conservation before any drawing. In `tts`, formulas become names (`HNO3` → 硝酸, `SO4^{2-}` → 硫酸根离子); the `zh` subtitle keeps the formula and renders subscripts.
+
+**Pipeline**: same shape as above, with `chem.js` next to `engine.js` (`equation`, `valence`, `bridge`, `eFlow`, `tally`, `molMap`, `iceTable`, `molecule`, `beaker`, `graph`).
+
+**Guard rails**: the same TTS, preview, and `--asr` rules as the other video skills, and `chem_check.py check` must exit 0. Oxidation states, coefficients, bridge endpoints, and molecule counts match the solution card. Lost electrons / oxidation are blue; gained electrons / reduction are red. Shared chemistry props go in `chem.js`. Leave `engine.js` unchanged.
+
+**Trigger words**: chemistry explainer video, redox, electron conservation, double-line bridge, amount of substance, chemical equilibrium, ICE table, titration; 化学题视频、氧化还原配平、双线桥、电子守恒、物质的量、化学平衡、三段式、滴定 etc.
+
+### Dependency
+
+Same as edu-math-video (shared `GLM_API_KEY` and the same fallback). `scripts/chem_check.py` needs no extra packages — it checks coefficients, atom / charge conservation, and molar mass.
+
+### Run the pipeline by hand (without Claude)
+
+```bash
+bash skills/edu-chem-video/scripts/new_video.sh "$PWD" my_problem
+bash skills/edu-chem-video/scripts/setup_check.sh my_problem           # must print ALL OK
+cd my_problem
+python3 build_audio.py --check
+python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
+python3 build_audio.py && node render.mjs video 6
 ```
 
 ## How it works
@@ -212,13 +275,27 @@ edulab/
     │   ├── scripts/generate.py
     │   ├── output/
     │   └── references/          # problem-schema.md · conventions.md
-    └── edu-math-video/          # math explainer videos — GLM-TTS + canvas animation → MP4
+    ├── edu-math-video/          # math explainer videos — GLM-TTS + canvas animation → MP4
+    │   ├── SKILL.md
+    │   ├── template/            # runnable sample project (engine.js · anim.js · build_audio.py · render.mjs)
+    │   ├── shared/              # pron.py + pron.json — shared pronunciation lexicon
+    │   ├── scripts/             # new_video.sh · setup_check.sh · problem image & contact-sheet tools
+    │   ├── examples/cone-parallel/  # solid-geometry example (camera tween · cone unrolling)
+    │   └── reference/           # TTS setup · script writing · pronunciation · visual design · animation API
+    ├── edu-physics-video/       # physics explainer videos — GLM-TTS + blueprint canvas → MP4
+    │   ├── SKILL.md
+    │   ├── template/            # blueprint theme (engine.js · phys.js · anim.js)
+    │   ├── shared/
+    │   ├── scripts/
+    │   ├── examples/laser-curvature/  # geometric-optics example
+    │   └── reference/
+    └── edu-chem-video/          # chemistry explainer videos — GLM-TTS + chalkboard canvas → MP4
         ├── SKILL.md
-        ├── template/            # runnable sample project (engine.js · anim.js · build_audio.py · render.mjs)
-        ├── shared/              # pron.py + pron.json — shared pronunciation lexicon
-        ├── scripts/             # new_video.sh · setup_check.sh · problem image & contact-sheet tools
-        ├── examples/cone-parallel/  # solid-geometry example (camera tween · cone unrolling)
-        └── reference/           # TTS setup · script writing · pronunciation · visual design · animation API
+        ├── template/            # chalkboard theme (engine.js · chem.js · anim.js)
+        ├── shared/
+        ├── scripts/             # plus chem_check.py — balance and conservation check
+        ├── examples/equilibrium/    # ICE-table / equilibrium example
+        └── reference/
 ```
 
 ## Extending
@@ -239,6 +316,14 @@ edulab/
 - **New problem**: never edit `engine.js`; write the per-problem `script.json` / `storyboard.md` / `anim.js`, and add new figure helpers inside `anim.js`.
 - **Fix a reading**: add the word to `shared/pron.json` (`words` / `ok`) — one lexicon shared by every video.
 
+**edu-physics-video**
+- **New problem**: leave `engine.js` unchanged; write the per-problem `script.json` / `storyboard.md` / `anim.js`. Shared physics props go in `phys.js`.
+- **Fix a reading**: add the word to `shared/pron.json`.
+
+**edu-chem-video**
+- **New problem**: leave `engine.js` unchanged; write the per-problem files. Shared chemistry props go in `chem.js`. Run `scripts/chem_check.py` on the equation before drawing.
+- **Fix a reading**: add the word to `shared/pron.json`.
+
 ## License
 
 [Apache-2.0](LICENSE)
@@ -246,6 +331,10 @@ edulab/
 ## Author
 
 WY · [@akokoi1](https://x.com/akokoi1)
+
+| WeChat | Xiaohongshu |
+|---|---|
+| <a href="http://weixin.qq.com/r/mp/kUwUDP3EZKAbrblv9xmD"><img src="qr-wechat.png" alt="WeChat official account" width="220"></a> | <a href="http://xhslink.com/m/64K17dDQNvj"><img src="qr-xiaohongshu.png" alt="Xiaohongshu" width="220"></a> |
 
 ## Star History
 

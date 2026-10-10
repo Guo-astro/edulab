@@ -134,7 +134,7 @@ python3 lib/reaction_kernel.py                              # kernel 内置自�
 
 ## 技能：edu-math-video
 
-![edu-math-video 演示](edu-math-video.png)
+![edu-math-video 演示](edu-math-video.jpg)
 
 把一道数学题（几何、代数、函数、行程问题……）做成 **16:9、1920×1080 的讲解视频 MP4**：智谱 **GLM-TTS** 中文配音、中英双语字幕（同时输出 `.srt`）、按旁白时间轴驱动的手绘笔记本风格 canvas 动画。输入可以是题目截图或文字。
 
@@ -166,6 +166,69 @@ cd my_problem
 python3 build_audio.py --check                                      # 脚本 + 读音检查（免费）
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
 python3 build_audio.py && node render.mjs video 6                   # 真配音，然后渲染（6 = 并行页数）
+```
+
+## 技能：edu-physics-video
+
+![edu-physics-video 演示](edu-physics-video.jpg)
+
+把一道物理题（力学、光学、电磁学……）做成 **16:9、1920×1080 的讲解视频 MP4**：智谱 **GLM-TTS** 中文配音、中英双语字幕（同时输出 `.srt`）、按旁白时间轴驱动的蓝图画布动画。输入可以是题目截图或文字。流水线与 edu-math-video 相同，区别在解题方法和画面。
+
+**画面跟着物理走**：建模，把运动分成几段，画受力，选规律，求解，再验算。力箭头按同一比例从作用点长出，物体位置来自解析解 `x(t)`，经 `simT()` 线性映射到屏幕时间，v–t 图同步生长，摩擦力随相对运动反向而转向。用 `S.at(k, f)` 定时。
+
+**流水线**（每个视频一个文件夹，建在用户当前目录）：
+
+```
+script.json ──build_audio.py──► timeline.json + mix.wav + <name>.srt   （GLM-TTS + 合成音乐）
+anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4    （Playwright + ffmpeg，30 fps）
+```
+
+**护栏**：第一幕展示原题并逐条框出条件；`tts` 只能是能念出来的中文（单位要读出来，无数字或数学符号；θ 读作西塔）；多音字必须固定读音，`--check` 为 0 才允许调用付费 TTS；先免费 `--preview` 再拿截图拼图审查版面，然后生成真配音；`--asr` 把配音转回文字核对字母读音。通用物理道具加在 `phys.js`。不要改 `engine.js`。
+
+**触发词**：物理题视频、受力分析、牛顿定律、斜面、平抛、圆周、能量、动量、折射；physics explainer video, force diagram, Newton's laws, projectile, circular motion, refraction 等。
+
+### 依赖
+
+与 edu-math-video 相同：Python 3 + `numpy requests pypinyin pillow`；Node.js 18+ + `playwright` + `ffmpeg-static`；智谱 **`GLM_API_KEY`** 写在 `~/.config/math-problem-video/.env`（三个视频技能共用）。没有 key 时 `TTS_ENGINE=auto` 依次用 edge-tts、macOS `say`。
+
+### 手动跑流水线（不经过 Claude）
+
+```bash
+bash skills/edu-physics-video/scripts/new_video.sh "$PWD" my_problem
+bash skills/edu-physics-video/scripts/setup_check.sh my_problem        # 必须输出 ALL OK
+cd my_problem
+python3 build_audio.py --check
+python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
+python3 build_audio.py && node render.mjs video 6
+```
+
+## 技能：edu-chem-video
+
+![edu-chem-video 演示](edu-chem-video.jpg)
+
+把一道化学题（氧化还原配平与双线桥、物质的量、化学平衡与三段式、离子反应、电化学、滴定、工业流程……）做成 **16:9、1920×1080 的讲解视频 MP4**：同样的中文配音和中英双语字幕，画面是**墨绿黑板**。配平后的方程式钉在顶部方程式条，左边演示、右边石板。
+
+**方程式在讲题，守恒被数出来**：化合价在数轴上升降，电子一组组长到相等，系数从电子行飞进方程式，原子计数条打上 ✓，双线桥画出电子流动，分子盒按系数比反应，三段式逐行填写。动笔之前用 `scripts/chem_check.py` 核对配平、原子守恒和电荷守恒。`tts` 里化学式换成名称（`HNO3` → 硝酸，`SO4^{2-}` → 硫酸根离子）；字幕 `zh` 保留化学式并自动排成下标。
+
+**流水线**：结构同上，在 `engine.js` 旁使用 `chem.js`（`equation`、`valence`、`bridge`、`eFlow`、`tally`、`molMap`、`iceTable`、`molecule`、`beaker`、`graph`）。
+
+**护栏**：TTS、预览和 `--asr` 与另外两个视频技能相同，并且 `chem_check.py check` 必须退出码为 0。化合价、系数、双线桥起止、分子数量都与解题卡一致。失电子 / 升价用蓝，得电子 / 降价用红。通用化学道具加在 `chem.js`。不要改 `engine.js`。
+
+**触发词**：化学题视频、氧化还原配平、双线桥、电子守恒、物质的量、化学平衡、三段式、滴定；chemistry explainer video, redox, electron conservation, ICE table, titration 等。
+
+### 依赖
+
+与 edu-math-video 相同（共用 `GLM_API_KEY` 和兜底引擎）。`scripts/chem_check.py` 不需要额外的包，用来核对系数、原子 / 电荷守恒和摩尔质量。
+
+### 手动跑流水线（不经过 Claude）
+
+```bash
+bash skills/edu-chem-video/scripts/new_video.sh "$PWD" my_problem
+bash skills/edu-chem-video/scripts/setup_check.sh my_problem           # 必须输出 ALL OK
+cd my_problem
+python3 build_audio.py --check
+python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
+python3 build_audio.py && node render.mjs video 6
 ```
 
 ## 工作原理
@@ -212,13 +275,27 @@ edulab/
     │   ├── scripts/generate.py
     │   ├── output/
     │   └── references/          # problem-schema.md · conventions.md
-    └── edu-math-video/          # 数学题讲解视频 — GLM-TTS + canvas 动画 → MP4
+    ├── edu-math-video/          # 数学题讲解视频 — GLM-TTS + canvas 动画 → MP4
+    │   ├── SKILL.md
+    │   ├── template/            # 可直接运行的示例项目（engine.js · anim.js · build_audio.py · render.mjs）
+    │   ├── shared/              # pron.py + pron.json —— 共享读音词表
+    │   ├── scripts/             # new_video.sh · setup_check.sh · 题目图片与截图拼图工具
+    │   ├── examples/cone-parallel/  # 立体几何示例（相机转俯视 · 圆锥展开）
+    │   └── reference/           # TTS 配置 · 脚本写法 · 读音 · 画面设计 · 动画 API
+    ├── edu-physics-video/       # 物理题讲解视频 — GLM-TTS + 蓝图动画 → MP4
+    │   ├── SKILL.md
+    │   ├── template/            # 蓝图主题（engine.js · phys.js · anim.js）
+    │   ├── shared/
+    │   ├── scripts/
+    │   ├── examples/laser-curvature/  # 几何光学示例
+    │   └── reference/
+    └── edu-chem-video/          # 化学题讲解视频 — GLM-TTS + 黑板动画 → MP4
         ├── SKILL.md
-        ├── template/            # 可直接运行的示例项目（engine.js · anim.js · build_audio.py · render.mjs）
-        ├── shared/              # pron.py + pron.json —— 共享读音词表
-        ├── scripts/             # new_video.sh · setup_check.sh · 题目图片与截图拼图工具
-        ├── examples/cone-parallel/  # 立体几何示例（相机转俯视 · 圆锥展开）
-        └── reference/           # TTS 配置 · 脚本写法 · 读音 · 画面设计 · 动画 API
+        ├── template/            # 黑板主题（engine.js · chem.js · anim.js）
+        ├── shared/
+        ├── scripts/             # 另有 chem_check.py —— 配平与守恒核对
+        ├── examples/equilibrium/    # 化学平衡 / 三段式示例
+        └── reference/
 ```
 
 ## 扩展
@@ -239,6 +316,14 @@ edulab/
 - **做新题**：不改 `engine.js`；每道题重写 `script.json` / `storyboard.md` / `anim.js`，新图形函数写在 `anim.js` 里。
 - **修读音**：把词加进 `shared/pron.json`（`words` / `ok`），所有视频共用一份词表。
 
+**edu-physics-video**
+- **做新题**：不改 `engine.js`；每道题重写 `script.json` / `storyboard.md` / `anim.js`。通用物理道具加在 `phys.js`。
+- **修读音**：把词加进 `shared/pron.json`。
+
+**edu-chem-video**
+- **做新题**：不改 `engine.js`；每道题重写自己的文件。通用化学道具加在 `chem.js`。动笔前用 `scripts/chem_check.py` 核对方程式。
+- **修读音**：把词加进 `shared/pron.json`。
+
 ## License
 
 [Apache-2.0](LICENSE)
@@ -246,6 +331,10 @@ edulab/
 ## 作者
 
 WY · [@akokoi1](https://x.com/akokoi1)
+
+| 微信公众号 | 小红书 |
+|---|---|
+| <a href="http://weixin.qq.com/r/mp/kUwUDP3EZKAbrblv9xmD"><img src="qr-wechat.png" alt="微信公众号" width="220"></a> | <a href="http://xhslink.com/m/64K17dDQNvj"><img src="qr-xiaohongshu.png" alt="小红书" width="220"></a> |
 
 ## Star History
 
