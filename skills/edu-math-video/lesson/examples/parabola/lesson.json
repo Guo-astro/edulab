@@ -1,5 +1,8 @@
 {
   "meta": { "title": "二次函数的最小值", "grade": "初三", "topic": "二次函数", "style": "whiteboard" },
+  "intro": [
+    {"show": "求二次函数 $y=x^2-2x+3$ 的最小值。", "say": "求二次函数 y=x²−2x+3 的最小值。", "speak": "求二次函数 y 等于 x 的平方 减 2 x 加 3 的最小值。"}
+  ],
   "figure": {
     "type": "graph",
     "view": { "xmin": -2, "xmax": 4, "ymin": -1, "ymax": 7 },

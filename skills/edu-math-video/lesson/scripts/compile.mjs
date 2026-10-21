@@ -62,8 +62,22 @@ export function splitCaption(text, voice, t0, max = CAP_MAX) {
   });
 }
 
+// "intro": [{show, say, speak?}] → an opening scene that shows the whole problem and reads it segment by segment.
+// Idempotent: build.mjs expands before TTS (the intro beats need voices too), compile() again for direct callers.
+export function expandIntro(lesson) {
+  if (!Array.isArray(lesson.intro) || !lesson.intro.length) return lesson;
+  const { intro, ...rest } = lesson;
+  const scene = {
+    title: '题目', short: '读题', problem: true,
+    beats: intro.map((seg) => ({ say: seg.say, speak: seg.speak, pause: seg.pause, show: seg.show })),
+  };
+  return { ...rest, scenes: [scene, ...(lesson.scenes || [])] };
+}
+
 export function compile(lesson, voices) {
+  lesson = expandIntro(lesson);
   const ops = [], captions = [], audio = [], scenes = [], warnings = [];
+  if (!lesson.scenes[0] || !lesson.scenes[0].problem) warnings.push('缺少读题开场：在 lesson.json 顶层加 "intro"（显示并朗读题目），见 lesson-schema.md');
   let cur = 0.6, id = 0, bi = 0, lastWrite = null, writeFree = 0;
   const byId = {};
   const lint = (s) => { const r = s != null && rawMath(s); if (r) warnings.push(`公式请用 $…$（KaTeX）写，不要用纯文本符号："${r}"`); };
@@ -78,12 +92,24 @@ export function compile(lesson, voices) {
       ops.push(w); lastWrite = w.id; writeFree = w.at + w.dur;
     }
     cur = tStart + 0.3;
-    for (const beat of sc.beats) {
+    const segs = [];
+    if (sc.problem) {
+      // the whole problem appears at once (quick staggered sweep), then each segment lights up while it is read
+      sc.beats.forEach((b, k) => {
+        lint(b.show);
+        const w = { kind: 'write', id: 'Q' + k, role: 'problem', text: b.show || '', at: Math.max(tStart + 0.2, writeFree) + k * 0.15, dur: 0.6 };
+        ops.push(w); segs.push(w.id);
+      });
+      writeFree = ops[ops.length - 1].at + 0.6; lastWrite = segs[segs.length - 1];
+      cur = writeFree + 0.3;
+    }
+    for (const [k, beat] of sc.beats.entries()) {
       const v = voices[bi++];
       if (!v) throw new Error('missing TTS result for beat ' + bi);
       const t0 = cur, d = v.duration;
       if (beat.say) captions.push(...splitCaption(captionText(beat.say), v, t0));
       audio.push({ file: v.file, at: t0 });
+      if (sc.problem) ops.push({ kind: 'read', target: segs[k], at: t0, dur: 0.25, out: t0 + d });
       const acts = beat.do || [];
       let end = t0 + d;
       acts.forEach((a, i) => {

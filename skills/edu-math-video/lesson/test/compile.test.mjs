@@ -36,7 +36,7 @@ test('compile: scene title, anchored ops, sequential writes, duration', () => {
   assert.equal(emph.target, writes[writes.length - 1].id);
   assert.deepEqual(tl.ops.find((o) => o.kind === 'cam').face, ['B', 'C', 'C1', 'B1']);
   assert.ok(tl.duration > tl.captions[1].end);
-  assert.deepEqual(tl.warnings, []);
+  assert.deepEqual(tl.warnings.filter((w) => !w.includes('读题')), []);
 });
 
 test('captions and srt', () => {
@@ -63,4 +63,19 @@ test('plain-text formulas on the board are flagged, KaTeX and {names} are not', 
 
 test('KaTeX lines get writing time from their visible glyphs', () => {
   assert.ok(writeDur('$\\cos\\theta=\\dfrac{|\\vec n_1\\cdot\\vec n_2|}{|\\vec n_1||\\vec n_2|}$') > writeDur('$x=1$') + 0.5);
+});
+
+test('intro becomes an opening scene: whole problem shown at once, each segment lit while read', () => {
+  const L = { intro: [{ show: '已知 $x>0$，', say: '已知 x 大于 0，' }, { show: '求 $x$。', say: '求 x。' }],
+    scenes: [{ title: '解', beats: [{ say: '甲。' }] }] };
+  const tl = compile(L, [voice(2, []), voice(1, []), voice(1, [])]);
+  assert.equal(tl.scenes[0].title, '题目');
+  assert.equal(tl.warnings.length, 0);
+  const qs = tl.ops.filter((o) => o.role === 'problem'), reads = tl.ops.filter((o) => o.kind === 'read');
+  assert.deepEqual(qs.map((o) => o.text), ['已知 $x>0$，', '求 $x$。']);
+  assert.ok(qs[1].at + qs[1].dur < tl.audio[0].at, 'problem fully on the board before reading starts');
+  assert.deepEqual(reads.map((r) => r.target), ['Q0', 'Q1']);
+  assert.equal(reads[0].at, tl.audio[0].at);
+  assert.ok(Math.abs(reads[0].out - (tl.audio[0].at + 2)) < 1e-9);
+  assert.ok(tl.scenes[1].at > reads[1].out, 'solution starts on a fresh page after the reading');
 });

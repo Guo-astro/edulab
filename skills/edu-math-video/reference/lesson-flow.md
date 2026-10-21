@@ -15,6 +15,7 @@
 
 格式见 [../lesson/reference/lesson-schema.md](../lesson/reference/lesson-schema.md)，讲法见 [../lesson/reference/teaching-guide.md](../lesson/reference/teaching-guide.md)，图形见 [../lesson/reference/figures.md](../lesson/reference/figures.md)。完整范例：`LESSON/examples/prism-de/lesson.json`（高中立体几何，两问）、`examples/parabola`（函数图像）、`examples/triangle`（平面几何）。
 
+- **先写 `intro`（开头读题）**：按原文分段，每个小问一段，`show` 照抄原文（公式用 `$…$`），`say` 读原文。格式见 lesson-schema.md 的"intro"一节。没有 intro 构建不通过。
 - `meta.style` 写第 1 步自动选的风格（只是初始值，用户最后可以换），`meta.tts` 写选的配音引擎，`meta.problem` / `meta.answer` 记录题目和答案。
 - 每小问一个 scene；scene 内按"审题 → 思路 → 板书 → 小结"组织 beats。
 - 一个 beat = 一句口播（`say`）+ 这句话期间发生的动作（`do`）。动作用 `"at": "关键词"` 对齐到口播里的词。

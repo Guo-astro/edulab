@@ -35,7 +35,7 @@
     // ---- text lines ----
     for (const o of writes) {
       const lw = document.createElement('div');
-      lw.className = 'lw';
+      lw.className = 'lw' + (o.role === 'problem' ? ' q' : '');
       const ln = document.createElement('div');
       ln.className = 'ln' + (o.role ? ' ' + o.role : '');
       let html = mark(SV.tex(o.text));
@@ -62,6 +62,13 @@
         ln.lw.appendChild(s);
         anim.push({ el: s, at: o.at, dur: 0.35, fx: 'stamp' });
       }
+    }
+    // ---- reading the problem: the segment being read lights up ----
+    for (const o of L.ops.filter((x) => x.kind === 'read')) {
+      const ln = lines[o.target];
+      if (!ln) continue;
+      const m = document.createElement('div'); m.className = 'readmark'; ln.lw.prepend(m);
+      anim.push({ el: m, at: o.at, dur: o.dur, out: o.out, fx: 'read' });
     }
     // ---- tips ----
     for (const o of L.ops.filter((x) => x.kind === 'tip')) {
@@ -107,6 +114,13 @@
         if (!page || (forced && page.n)) newPage(forced ? Math.min(o.at, breaks[bi - 1] + ERASE) : o.at);
         const { lw } = lines[o.id];
         page.el.appendChild(lw); page.n++;
+        if (o.role === 'problem') {
+          // the problem must stay on one page: shrink all its segments together instead of flipping
+          const qs = [...page.el.querySelectorAll('.ln.problem')];
+          for (let f = 0.86; page.el.scrollHeight > colH + 2 && f >= 0.66; f -= 0.04) qs.forEach((q) => (q.style.fontSize = f.toFixed(2) + 'em'));
+          if (page.el.scrollHeight > colH + 2 && !S.report.some((r) => r.id && r.id[0] === 'Q')) S.report.push({ type: 'overflow-y', id: o.id, text: '题目太长，一页放不下：精简 intro 的 show（去掉套话，条件用公式写）' });
+          continue;
+        }
         if (page.el.scrollHeight > colH + 2 && page.n > 1) { lw.remove(); page.n--; newPage(o.at); page.el.appendChild(lw); page.n++; }
         const { ln } = lines[o.id];
         if (ln.scrollWidth > colW) {

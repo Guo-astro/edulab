@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { synthAll, FFMPEG } from './tts.mjs';
 import { toSpeak } from './speak.mjs';
-import { compile, toSrt } from './compile.mjs';
+import { compile, toSrt, expandIntro } from './compile.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const STYLES = ['chalk', 'lab', 'whiteboard', 'notebook'];
@@ -58,7 +58,7 @@ export function mixAudio(timeline, outFile) {
 }
 
 export async function build(lessonPath, opts = {}) {
-  const lesson = JSON.parse(fs.readFileSync(lessonPath, 'utf8'));
+  const lesson = expandIntro(JSON.parse(fs.readFileSync(lessonPath, 'utf8')));
   lesson.meta = lesson.meta || {};
   if (opts.style) lesson.meta.style = opts.style;
   if (!STYLES.includes(lesson.meta.style || 'chalk')) throw new Error(`未知风格 ${lesson.meta.style}，可选：${STYLES.join(' / ')}`);

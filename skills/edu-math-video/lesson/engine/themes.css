@@ -17,6 +17,10 @@ html,body{margin:0;padding:0}
 .stage .hl{position:relative}
 .stage .hl::before{content:"";position:absolute;left:-5px;right:-5px;top:40%;bottom:4%;border-radius:4px 12px 5px 14px;transform:skewX(-8deg) scaleX(var(--e,0));transform-origin:left;z-index:-1}
 .stage .emph-ellipse{position:absolute;left:-34px;top:calc(-14px - 12%);width:calc(100% + 68px);height:calc(100% + 28px + 24%);overflow:visible}  /* % part: room for tall formulas */
+.stage .lw.q{width:100%;margin-bottom:.3em}
+.stage .ln.problem{white-space:normal;width:auto;font-size:.9em;line-height:1.75}
+.stage .readmark{position:absolute;inset:-3px -12px;border-radius:6px;opacity:var(--e,0);background:rgba(255,214,102,.13);box-shadow:inset 4px 0 0 rgba(255,214,102,.85)}
+.th-whiteboard .readmark,.th-notebook .readmark{background:rgba(255,212,59,.3);box-shadow:inset 4px 0 0 #f59f00}
 .stage .emph-box{position:absolute;inset:-4px -18px;border-radius:8px}
 .stage .emph-stamp{position:absolute;left:calc(100% + 18px);top:50%;margin-top:-52px;width:104px;height:104px;border-radius:50%;display:grid;place-items:center;text-align:center;line-height:1.1}
 .stage .viewtag{position:absolute;right:0;top:-30px;white-space:nowrap;font-size:19px;padding:4px 14px;border-radius:999px;border:1.5px solid currentColor;z-index:5}

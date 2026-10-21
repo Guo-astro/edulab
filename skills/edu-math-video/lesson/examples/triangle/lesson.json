@@ -1,5 +1,9 @@
 {
   "meta": { "title": "三角形中位线", "grade": "初二", "topic": "平面几何", "style": "notebook" },
+  "intro": [
+    {"show": "如图，在 $\\triangle ABC$ 中，$M$、$N$ 分别是 $AB$、$AC$ 的中点，$BC=6$。", "say": "如图，在三角形 ABC 中，M、N 分别是 AB、AC 的中点，BC 等于 6。"},
+    {"show": "求 $MN$ 的长。", "say": "求 MN 的长。"}
+  ],
   "figure": {
     "type": "plane2d",
     "points": { "A": [1.2, 3.2], "B": [0, 0], "C": [4, 0] },

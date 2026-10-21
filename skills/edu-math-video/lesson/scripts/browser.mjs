@@ -17,5 +17,9 @@ export async function openStage(browser, outDir, { scale = 1.5 } = {}) {
   await page.evaluate(() => SV.state().ready);
   if (errors.length) throw new Error('页面错误：' + errors.join(' | '));
   const seek = (t) => page.evaluate((t) => SV.seek(t), t);
+  // the first capture after load can show stale compositor tiles (a second copy of the board at the bottom):
+  // take one throwaway screenshot so every real frame is clean
+  await seek(0);
+  await page.screenshot();
   return { page, seek, errors };
 }
