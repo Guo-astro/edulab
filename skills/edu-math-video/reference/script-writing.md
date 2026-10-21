@@ -12,6 +12,7 @@
 - `title`：写进 mp4 元数据。
 - `output_name`：输出 `WS/<output_name>.mp4` 和 `.srt`。格式 `中文短名_English_Name`，不要有空格和 `/`。
 - `pop_scenes`：这些幕里每句旁白开始时加一个轻"啵"音效（用在关键结论、列式计算幕）。幕切换的"嗖"音效是自动的。
+- `tts`（可选）：第 0 步选的配音引擎 `glm` / `doubao` / `minimax` / `edge` / `say`；不写 = `.env` 的 `TTS_ENGINE` / 自动（见 tts-setup.md）。
 
 ## script.json 格式
 

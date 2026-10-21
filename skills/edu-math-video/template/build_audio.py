@@ -9,21 +9,18 @@
   PY build_audio.py --asr        after the real run: speech-recognise every clip (GLM-ASR, cached in build/asr.json)
                                  -> build/asr_report.txt; lines whose LETTER sequence (AB, CD, t ...) differs from
                                  the script are flagged (e.g. "CO" heard as 口)
-  PY build_audio.py              real run: GLM-TTS for every line (cached by text in build/tts/), timeline,
+  PY build_audio.py              real run: TTS for every line (cached by text in build/tts/), timeline,
                                  music + SFX, mix.wav, ../<output_name>.srt
+  --tts glm|doubao|minimax|edge|say   with any of the above: override the engine (e.g. audition voices with --say)
 
 PY = a python3 that has numpy, requests, pypinyin (on macOS usually /usr/bin/python3).
-GLM_API_KEY / GLM_VOICE come from the environment, the nearest .env above this folder, or
-~/.config/math-problem-video/.env (user-level, shared by all workspaces).
+Keys / voices come from the environment or the workspace .env (nearest .env above this folder).
 
-TTS engine (TTS_ENGINE=auto|glm|edge|say, default auto = the first one available, in this order):
-  glm   GLM-TTS, needs GLM_API_KEY. Best quality; the only engine with --asr checking.
-  edge  fallback: Microsoft Edge neural voices via `pip install edge-tts`, free, no key, needs internet
-        (EDGE_VOICE, default zh-CN-XiaoxiaoNeural)
-  say   last resort: macOS built-in `say`, offline, robotic (SAY_VOICE, default Tingting: the other zh voices
-        cannot read Latin letters)
+TTS engine (the engines live in the skill's shared/tts.py): --tts > episode.json "tts" > TTS_ENGINE > auto
+(the first engine with a key: glm, doubao, minimax; then edge-tts, then macOS `say`).
+--asr always uses GLM-ASR, so it needs GLM_API_KEY whichever engine spoke.
 """
-import hashlib, json, os, re, shutil, struct, subprocess, sys, wave
+import hashlib, json, os, re, shutil, sys, wave
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import requests
@@ -56,7 +53,14 @@ if not _pron_dir:
     raise SystemExit("pron.py not found in this folder or any parent. Copy shared/pron.py + shared/pron.json "
                      "from the edu-math-video skill to the workspace root.")
 sys.path.insert(0, _pron_dir)
+# pron.py in the workspace is normally a symlink into the skill's shared/, where tts.py lives too
+sys.path.insert(1, os.path.dirname(os.path.realpath(os.path.join(_pron_dir, "pron.py"))))
 import pron  # noqa: E402  shared pronunciation control (<workspace>/pron.py + pron.json)
+try:
+    import tts as tts_engines  # noqa: E402  shared TTS engines (skill shared/tts.py)
+except ImportError:
+    raise SystemExit("tts.py not found next to pron.py: `ln -s <skill>/shared/tts.py <workspace_root>/` "
+                     "(new_video.sh does this).")
 
 FF = _find_ff()
 BUILD = os.path.join(ROOT, "build")
@@ -64,134 +68,18 @@ TTS_DIR = os.path.join(BUILD, "tts")
 os.makedirs(TTS_DIR, exist_ok=True)
 SR = 48000
 
-
-USER_ENV = os.path.expanduser("~/.config/math-problem-video/.env")  # one key for every workspace
-
-
-def load_env():
-    """Priority: environment variables > nearest .env above the project > ~/.config/math-problem-video/.env"""
-    env = {}
-    d = _find_up(".env")
-    for f in [USER_ENV] + ([os.path.join(d, ".env")] if d else []):  # later files override earlier ones
-        if not os.path.exists(f):
-            continue
-        for line in open(f, encoding="utf-8"):
-            if "=" in line and not line.lstrip().startswith("#"):
-                k, v = line.strip().split("=", 1)
-                env[k.strip()] = v.strip().strip("\"'")
-    for key in ("GLM_API_KEY", "GLM_VOICE", "GLM_SPEED", "TTS_ENGINE", "EDGE_VOICE", "SAY_VOICE"):
-        if os.environ.get(key):
-            env[key] = os.environ[key]
-    return env
-
-
-ENV = load_env()
-VOICES = ("tongtong", "chuichui", "xiaochen", "jam", "kazi", "douji", "luodo")
-SPEED = float(ENV.get("GLM_SPEED", "1.05"))
-
-
-def _has_edge():
-    try:
-        import edge_tts  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
-def pick_engine():
-    want = ENV.get("TTS_ENGINE", "auto").lower()
-    if want != "auto":
-        return want
-    if ENV.get("GLM_API_KEY"):
-        return "glm"
-    if _has_edge():
-        return "edge"
-    if shutil.which("say"):
-        return "say"
-    return "glm"  # nothing available: need_key() explains what to set up
-
-
-ENGINE = pick_engine()
-# VOICE also keys the TTS cache, so each engine gets its own clips (GLM keeps the plain voice name: old caches stay valid)
-VOICE = {"glm": ENV.get("GLM_VOICE", "chuichui"),
-         "edge": "edge:" + ENV.get("EDGE_VOICE", "zh-CN-XiaoxiaoNeural"),
-         "say": "say:" + ENV.get("SAY_VOICE", "Tingting")}.get(ENGINE)
-if VOICE is None:
-    raise SystemExit(f"TTS_ENGINE={ENGINE!r}: use auto, glm, edge or say")
-LETTER_SEP = "、" if ENGINE == "say" else " "  # see pron.to_tts
 EPISODE = json.load(open(os.path.join(ROOT, "episode.json"), encoding="utf-8"))
 OUT_NAME = EPISODE["output_name"]
 POP_SCENES = set(EPISODE.get("pop_scenes", []))  # scenes whose lines each get a soft "pop" SFX
 TRANSPOSE = 5  # D major, bright and bouncy
 
-
-def strip_wav(raw: bytes) -> bytes:
-    """Keep only fmt + data chunks (drops AIGC / LIST metadata watermark chunks)."""
-    i, fmt, data = 12, None, None
-    while i < len(raw) - 8:
-        cid = raw[i:i + 4]
-        sz = struct.unpack("<I", raw[i + 4:i + 8])[0]
-        if cid == b"fmt ":
-            fmt = raw[i + 8:i + 8 + sz]
-        elif cid == b"data":
-            data = raw[i + 8:i + 8 + sz]
-        i += 8 + sz + (sz & 1)
-    assert fmt and data, "bad wav"
-    body = b"fmt " + struct.pack("<I", len(fmt)) + fmt + b"data" + struct.pack("<I", len(data)) + data
-    return b"RIFF" + struct.pack("<I", 4 + len(body)) + b"WAVE" + body
-
-
-def _to_wav(src, out):
-    """Any audio file -> 48 kHz mono wav without metadata."""
-    subprocess.run([FF, "-y", "-loglevel", "error", "-i", src, "-map_metadata", "-1",
-                    "-fflags", "+bitexact", "-ar", str(SR), "-ac", "1", out], check=True)
-    os.remove(src)
-
-
-def tts_edge(text, out):
-    import asyncio
-    import edge_tts
-    tmp = out + ".mp3"
-    rate = f"{round((SPEED - 1) * 100):+d}%"
-    for attempt in range(3):
-        try:
-            asyncio.run(edge_tts.Communicate(text, VOICE.split(":", 1)[1], rate=rate).save(tmp))
-            return _to_wav(tmp, out)
-        except Exception as e:  # network hiccups: the service is free but unofficial
-            print("edge-tts retry", attempt, e, file=sys.stderr)
-    raise RuntimeError(f"edge-tts failed  text: {text}")
-
-
-def tts_say(text, out):
-    tmp = out + ".aiff"
-    # `say` rate is words per minute; ~190 matches GLM's pace for Chinese at speed 1.0
-    subprocess.run(["say", "-v", VOICE.split(":", 1)[1], "-r", str(round(190 * SPEED)), "-o", tmp, text], check=True)
-    _to_wav(tmp, out)
+T = tts_engines.TTS(ROOT, sys.argv[sys.argv.index("--tts") + 1] if "--tts" in sys.argv else EPISODE.get("tts"), ff=FF)
+ENV, ENGINE, VOICE, SPEED, LETTER_SEP = T.env, T.engine, T.voice, T.speed, T.sep
+need_key = T.need_key
 
 
 def tts(text: str, out: str):
-    if os.path.exists(out):
-        return
-    if ENGINE == "edge":
-        return tts_edge(text, out)
-    if ENGINE == "say":
-        return tts_say(text, out)
-    for attempt in range(4):
-        r = requests.post(
-            "https://open.bigmodel.cn/api/paas/v4/audio/speech",
-            headers={"Authorization": f"Bearer {ENV['GLM_API_KEY']}"},
-            json={"model": "glm-tts", "input": text, "voice": VOICE, "response_format": "wav",
-                  "speed": SPEED, "watermark_enabled": False},
-            timeout=120,
-        )
-        if r.status_code == 200 and r.content[:4] == b"RIFF":
-            tmp = out + ".raw.wav"
-            open(tmp, "wb").write(strip_wav(r.content))
-            return _to_wav(tmp, out)  # resample to 48k, drop all metadata
-        print("TTS retry", attempt, r.status_code, r.text[:300], file=sys.stderr)
-        if r.status_code in (400, 401, 403):  # bad key / bad request / no balance: retrying will not help
-            break
-    raise RuntimeError(f"TTS failed ({r.status_code}): {r.text[:300]}  text: {text}")
+    T.synth(text, out)
 
 
 def asr(path):
@@ -528,24 +416,6 @@ def load_script():
     return script, jobs, report, unpinned
 
 
-def need_key():
-    if ENGINE == "edge" and not _has_edge():
-        raise SystemExit("TTS_ENGINE=edge but edge-tts is not installed: ask the user, then `PY -m pip install --user edge-tts`")
-    if ENGINE == "say" and not shutil.which("say"):
-        raise SystemExit("TTS_ENGINE=say needs macOS (`say` not found). Use glm or edge.")
-    if ENGINE != "glm":
-        print(f"note: TTS engine = {ENGINE} ({VOICE}), fallback quality; GLM-TTS (GLM_API_KEY) sounds better "
-              "and enables --asr.", file=sys.stderr)
-        return
-    if not ENV.get("GLM_API_KEY"):
-        raise SystemExit("GLM_API_KEY is missing. Ask the user to put `GLM_API_KEY=...` in ~/.config/math-problem-video/.env "
-                         "(works in every directory) or in the workspace-root .env "
-                         "(key from https://bigmodel.cn/usercenter/proj-mgmt/apikeys). Never invent or print a key. "
-                         "Without a key: TTS_ENGINE=edge (pip install edge-tts) or TTS_ENGINE=say (macOS).")
-    if VOICE not in VOICES:
-        print(f"note: GLM_VOICE={VOICE!r} is not a system voice {VOICES}; OK only if it is a cloned voice id.", file=sys.stderr)
-
-
 def main():
     if "--say" in sys.argv:
         src = sys.argv[sys.argv.index("--say") + 1]
@@ -592,7 +462,19 @@ def main():
     rep += "\n".join(["", *[f"ERROR {e}" for e in errors], *[f"warn  {w}" for w in warns],
                       f"script errors: {len(errors)}   warnings: {len(warns)}", ""])
     open(os.path.join(BUILD, "pron_report.txt"), "w", encoding="utf-8").write(rep)
-    print(rep)
+    # console: only what needs fixing (⚠ lines with their sentence, errors, warnings); the pinned readings
+    # ("固定 …") are in build/pron_report.txt for when the user reports a misreading
+    shown, head = [], None
+    for line in report:
+        if line.startswith("["):
+            head = line
+        elif line.lstrip().startswith("⚠"):
+            if head:
+                shown.append(head)
+                head = None
+            shown.append(line)
+    print("\n".join(shown + [l for l in rep.split("\n\n", 1)[-1].split("\n") if l.strip()]))
+    print(f"(pinned readings: {sum(1 for l in report if l.lstrip().startswith('固定'))}, full report: build/pron_report.txt)")
     if "--check" in sys.argv:
         raise SystemExit(1 if (unpinned or errors) else 0)
     if errors:

@@ -21,21 +21,26 @@ FF="$(up node_modules/ffmpeg-static/ffmpeg)" && ok "ffmpeg-static in $FF/node_mo
 if [ -d "/Applications/Google Chrome.app" ] || command -v google-chrome >/dev/null 2>&1; then ok "Google Chrome"; else
   echo "  note     no Google Chrome: render.mjs falls back to Playwright Chromium -> run: npx playwright install chromium"; fi
 PR="$(up pron.py)" && [ -e "$PR/pron.json" ] && ok "pron.py + pron.json in $PR" || miss "pron.py + pron.json" "copy <skill>/shared/pron.* to the workspace root"
-ENVD="$(up .env)"; UENV="$HOME/.config/math-problem-video/.env"
-if [ -n "${GLM_API_KEY:-}" ]; then ok "GLM_API_KEY in environment"
-elif [ -n "$ENVD" ] && grep -q '^GLM_API_KEY=..' "$ENVD/.env"; then ok "GLM_API_KEY in $ENVD/.env (value not shown)"
-elif [ -f "$UENV" ] && grep -q '^GLM_API_KEY=..' "$UENV"; then ok "GLM_API_KEY in $UENV (value not shown)"
-else
-  # no key: fall back to edge-tts (pip) or macOS `say`, see reference/glm-tts-setup.md "没有 GLM key 时"
-  FB=""
-  [ -n "$PY" ] && "$PY" -c "import edge_tts" 2>/dev/null && FB="edge (edge-tts, free, needs internet)"
-  [ -z "$FB" ] && command -v say >/dev/null 2>&1 && FB="say (macOS built-in, offline, robotic)"
-  if [ -n "$FB" ]; then
-    echo "  note     no GLM_API_KEY -> fallback TTS engine: $FB. Tell the user; GLM-TTS sounds better and enables --asr."
-    echo "           key setup: add GLM_API_KEY=<key> to $UENV (see reference/glm-tts-setup.md)"
-  else miss "GLM_API_KEY (or a fallback TTS)" "ASK THE USER to add a line GLM_API_KEY=<key> to $UENV (all directories) or <workspace_root>/.env. Key: https://bigmodel.cn/usercenter/proj-mgmt/apikeys. Or, with their OK: $PY -m pip install --user edge-tts. Do NOT go looking for another project's .env."; fi
+SKILL="$(cd "$(dirname "$0")/.." && pwd -P)"
+PT="$(up tts.py)" && ok "tts.py (shared TTS engines) in $PT" || miss "tts.py next to pron.py" "ln -s $SKILL/shared/tts.py <workspace_root>/"
+if [ -n "$PY" ]; then
+  # engine = episode.json "tts" > TTS_ENGINE > auto; `tts.py info` never prints key values
+  ET="$(grep -o '"tts" *: *"[a-z]*"' "$P/episode.json" 2>/dev/null | sed 's/.*"\([a-z]*\)"$/\1/')"
+  INFO="$(cd "$P" && "$PY" "$SKILL/shared/tts.py" info ${ET:+--tts "$ET"} 2>/dev/null)"
+  echo "  tts      $INFO"
+  ENG="$(echo "$INFO" | awk '{print $2}')"
+  case "$ENG" in
+    glm) KV=GLM_API_KEY ;; doubao) KV=DOUBAO_API_KEY ;; minimax) KV=MINIMAX_API_KEY ;; *) KV="" ;;
+  esac
+  if [ -z "$ENG" ]; then miss "shared/tts.py info" "run: cd $P && $PY $SKILL/shared/tts.py info   (read the error)"
+  elif [ -n "$KV" ] && ! echo "$INFO" | grep -q "$KV=set"; then
+    miss "$KV (TTS engine $ENG)" "bash $SKILL/scripts/init_env.sh <workspace_root> $ENG, then ASK THE USER to fill in $KV in <workspace_root>/.env and come back (reference/tts-setup.md); or pick another engine (\"tts\" in episode.json). Do NOT go looking for another project's .env."
+  elif [ -z "$KV" ] && echo "$INFO" | grep -q "\[auto\]"; then
+    miss "a TTS choice (no key: only the fallback $ENG is left)" "ASK THE USER: fill in a key (bash $SKILL/scripts/init_env.sh <workspace_root> <engine>, then wait for them) or use $ENG, warning that it sounds noticeably worse; record the choice as \"tts\": \"$ENG\" in episode.json"
+  elif [ -z "$KV" ]; then
+    echo "  note     TTS engine $ENG chosen by the user (fallback quality). Remind them at delivery; GLM, Doubao or MiniMax sound better."
+  else ok "TTS engine $ENG with $KV (value not shown)"; fi
+  echo "$INFO" | grep -q "GLM_API_KEY=set" || echo "  note     no GLM_API_KEY: --asr (letter check) will be skipped"
 fi
-V="$( { [ -f "$UENV" ] && grep '^GLM_VOICE=' "$UENV"; [ -n "$ENVD" ] && grep '^GLM_VOICE=' "$ENVD/.env"; } 2>/dev/null | tail -1 | cut -d= -f2 )"
-echo "  voice    ${GLM_VOICE:-${V:-chuichui (default)}}   (GLM; TTS_ENGINE=${TTS_ENGINE:-auto})"
 [ $bad -eq 0 ] && echo "ALL OK. Next: key test ->  cd $P && ${PY:-python3} build_audio.py --say \"你好，我们来看一道数学题。\"" || echo "Fix the MISSING items, then run this again."
 exit $bad

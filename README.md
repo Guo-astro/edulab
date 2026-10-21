@@ -136,7 +136,10 @@ python3 lib/reaction_kernel.py                              # kernel built-in se
 
 ![edu-math-video demo](edu-math-video.jpg)
 
-Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer MP4**: Chinese voice-over (Zhipu **GLM-TTS**), bilingual zh + en subtitles (`.srt` too), and hand-drawn notebook-style canvas animation driven by the narration timeline. Input is a problem screenshot or plain text.
+Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer MP4** with Chinese voice-over. Input is a problem screenshot or plain text.
+
+- **Five visual templates**: `handdrawn` (hand-drawn notebook-style canvas animation driven by the narration timeline, bilingual zh + en subtitles, background music) and four board styles — `chalk`, `lab`, `whiteboard`, `notebook` — written as a declarative `lesson.json` (auto board layout, auto-rotating 3D figures with live hidden-line computation, style switchable in the preview page).
+- **Five TTS engines**: Zhipu **GLM-TTS**, **Doubao** seed-tts 2.0, **MiniMax** (Doubao and MiniMax return word timestamps, so board actions sync to the exact word), plus free fallbacks edge-tts / macOS `say`. Both pipelines share `shared/tts.py`.
 
 **The picture explains the step**: every narration line gets a "point → move → keep" action on the figure (equal segments slide onto each other, congruent triangles overlay, the 3D camera tweens to a top view, a cone unrolls into a sector…) — timed by `S.at(k, f)` (a fraction into line *k*), never by hard-coded seconds. A `motion` check rejects static lines.
 
@@ -154,8 +157,9 @@ anim.js + engine.js ──node render.mjs video──► <name>.mp4             
 ### Dependency
 
 - Python 3 with `numpy requests pypinyin pillow`; Node.js 18+ with `playwright` + `ffmpeg-static` (installed once in the workspace — `scripts/new_video.sh` writes the `package.json`); Google Chrome or Playwright Chromium.
-- A Zhipu **`GLM_API_KEY`** provided by you, in `~/.config/math-problem-video/.env` (see `reference/glm-tts-setup.md`).
-- **No key?** It falls back automatically (`TTS_ENGINE=auto`): [edge-tts](https://github.com/rany2/edge-tts) if installed (free neural voices, needs internet), else macOS `say` (offline, robotic). Force one with `TTS_ENGINE=glm|edge|say`.
+- Board templates: `npm install` once in `skills/edu-math-video/lesson/` (playwright, katex, fonts).
+- A TTS key provided by you (any one): `GLM_API_KEY`, `DOUBAO_API_KEY` (+ `DOUBAO_VOICE`), or `MINIMAX_API_KEY`, in the `.env` of the directory you work in (`scripts/init_env.sh` creates it with empty slots; see `reference/tts-setup.md`). `python3 skills/edu-math-video/shared/tts.py info` shows which engine will be used.
+- **No key?** It falls back automatically (`TTS_ENGINE=auto`): [edge-tts](https://github.com/rany2/edge-tts) if installed (free neural voices, needs internet), else macOS `say` (offline, robotic). Force one with `TTS_ENGINE=glm|doubao|minimax|edge|say`.
 
 ### Run the pipeline by hand (without Claude)
 
@@ -189,7 +193,7 @@ anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4   
 
 ### Dependency
 
-Same as edu-math-video: Python 3 with `numpy requests pypinyin pillow`, Node.js 18+ with `playwright` + `ffmpeg-static`, and a Zhipu **`GLM_API_KEY`** in `~/.config/math-problem-video/.env` (shared by all three video skills). No key → `TTS_ENGINE=auto` falls back to [edge-tts](https://github.com/rany2/edge-tts), then macOS `say`.
+Same as edu-math-video: Python 3 with `numpy requests pypinyin pillow`, Node.js 18+ with `playwright` + `ffmpeg-static`, and a Zhipu **`GLM_API_KEY`** in the `.env` of the directory you work in (`scripts/init_env.sh` creates it with an empty slot). No key → `TTS_ENGINE=auto` falls back to [edge-tts](https://github.com/rany2/edge-tts), then macOS `say`.
 
 ### Run the pipeline by hand (without Claude)
 

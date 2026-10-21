@@ -13,8 +13,8 @@
                                  music + SFX, mix.wav, ../<output_name>.srt
 
 PY = a python3 that has numpy, requests, pypinyin (on macOS usually /usr/bin/python3).
-GLM_API_KEY / GLM_VOICE come from the environment, the nearest .env above this folder, or
-~/.config/math-problem-video/.env (user-level, shared by all workspaces).
+GLM_API_KEY / GLM_VOICE come from the environment or the workspace .env (nearest .env above this folder).
+No key yet: `bash <skill>/scripts/init_env.sh <workspace_root>` writes an .env with an empty slot for the user.
 
 TTS engine (TTS_ENGINE=auto|glm|edge|say, default auto = the first one available, in this order):
   glm   GLM-TTS, needs GLM_API_KEY. Best quality; the only engine with --asr checking.
@@ -65,17 +65,12 @@ os.makedirs(TTS_DIR, exist_ok=True)
 SR = 48000
 
 
-USER_ENV = os.path.expanduser("~/.config/math-problem-video/.env")  # one key for every workspace
-
-
 def load_env():
-    """Priority: environment variables > nearest .env above the project > ~/.config/math-problem-video/.env"""
+    """Priority: environment variables > the workspace .env (nearest .env above the project). No user-level file."""
     env = {}
     d = _find_up(".env")
-    for f in [USER_ENV] + ([os.path.join(d, ".env")] if d else []):  # later files override earlier ones
-        if not os.path.exists(f):
-            continue
-        for line in open(f, encoding="utf-8"):
+    if d:
+        for line in open(os.path.join(d, ".env"), encoding="utf-8"):
             if "=" in line and not line.lstrip().startswith("#"):
                 k, v = line.strip().split("=", 1)
                 env[k.strip()] = v.strip().strip("\"'")
@@ -112,6 +107,7 @@ def pick_engine():
 
 
 ENGINE = pick_engine()
+AUTO = ENV.get("TTS_ENGINE", "auto").lower() == "auto"  # nobody chose: a fallback engine must be confirmed first
 # VOICE also keys the TTS cache, so each engine gets its own clips (GLM keeps the plain voice name: old caches stay valid)
 VOICE = {"glm": ENV.get("GLM_VOICE", "chuichui"),
          "edge": "edge:" + ENV.get("EDGE_VOICE", "zh-CN-XiaoxiaoNeural"),
@@ -533,13 +529,19 @@ def need_key():
         raise SystemExit("TTS_ENGINE=edge but edge-tts is not installed: ask the user, then `PY -m pip install --user edge-tts`")
     if ENGINE == "say" and not shutil.which("say"):
         raise SystemExit("TTS_ENGINE=say needs macOS (`say` not found). Use glm or edge.")
+    if ENGINE != "glm" and AUTO:
+        name = {"say": "macOS 自带的 say", "edge": "免费的 edge-tts"}.get(ENGINE, ENGINE)
+        raise SystemExit(f"No GLM_API_KEY, so the only engine left is {ENGINE} ({name}). Do NOT use it silently: ASK THE USER "
+                         "(AskUserQuestion) — 1) 填写 key（推荐，音质好）: run `bash <skill>/scripts/init_env.sh <workspace_root>`, "
+                         f"tell them to fill in GLM_API_KEY, end the turn and wait; 2) 用{name}: warn that it sounds noticeably "
+                         f"worse (机械感明显 / 断句和读音不如 GLM), then add TTS_ENGINE={ENGINE} to <workspace_root>/.env and run again.")
     if ENGINE != "glm":
-        print(f"note: TTS engine = {ENGINE} ({VOICE}), fallback quality; GLM-TTS (GLM_API_KEY) sounds better "
+        print(f"note: TTS engine = {ENGINE} ({VOICE}), fallback quality (chosen by the user); GLM-TTS (GLM_API_KEY) sounds better "
               "and enables --asr.", file=sys.stderr)
         return
     if not ENV.get("GLM_API_KEY"):
-        raise SystemExit("GLM_API_KEY is missing. Ask the user to put `GLM_API_KEY=...` in ~/.config/math-problem-video/.env "
-                         "(works in every directory) or in the workspace-root .env "
+        raise SystemExit("GLM_API_KEY is missing. Run `bash <skill>/scripts/init_env.sh <workspace_root>`, then ask the user "
+                         "to fill in GLM_API_KEY in <workspace_root>/.env and come back "
                          "(key from https://bigmodel.cn/usercenter/proj-mgmt/apikeys). Never invent or print a key. "
                          "Without a key: TTS_ENGINE=edge (pip install edge-tts) or TTS_ENGINE=say (macOS).")
     if VOICE not in VOICES:

@@ -136,7 +136,10 @@ python3 lib/reaction_kernel.py                              # kernel 内置自�
 
 ![edu-math-video 演示](edu-math-video.jpg)
 
-把一道数学题（几何、代数、函数、行程问题……）做成 **16:9、1920×1080 的讲解视频 MP4**：智谱 **GLM-TTS** 中文配音、中英双语字幕（同时输出 `.srt`）、按旁白时间轴驱动的手绘笔记本风格 canvas 动画。输入可以是题目截图或文字。
+把一道数学题（几何、代数、函数、行程问题……）做成 **16:9、1920×1080 的讲解视频 MP4**，输入可以是题目截图或文字。
+
+- **五种画面模板**：`handdrawn` 手绘动画（按旁白时间轴驱动的手绘笔记本风格 canvas 动画 + 中英双语字幕 + 背景音乐），以及四种板书模板 `chalk` 粉笔黑板 / `lab` 几何实验室 / `whiteboard` 白板马克笔 / `notebook` 方格本（写声明式 `lesson.json`，引擎自动排版板书、立体图自动旋转并实时计算虚实线，预览页可随时切换风格）。
+- **五种配音引擎**：智谱 **GLM-TTS**、**豆包**语音合成 2.0、**MiniMax**（豆包和 MiniMax 返回逐字时间戳，板书动作精确对齐到字），以及免费兜底 edge-tts / macOS `say`。两条流水线共用 `shared/tts.py`。
 
 **图会"讲题"**：每句旁白在图上都有一个"指 → 动 → 留"的动作（相等线段滑过去重合、全等三角形叠上去、3D 相机转到俯视、圆锥侧面展开成扇形……），用 `S.at(k, f)`（第 k 句开始后 f 比例处）定时，绝不写死秒数；`motion` 检查会拦下静止不动的句子。
 
@@ -154,8 +157,9 @@ anim.js + engine.js ──node render.mjs video──► <name>.mp4             
 ### 依赖
 
 - Python 3 + `numpy requests pypinyin pillow`；Node.js 18+ + `playwright` + `ffmpeg-static`（在工作目录装一次，`scripts/new_video.sh` 会生成 `package.json`）；Google Chrome 或 Playwright Chromium。
-- 由你自己提供的智谱 **`GLM_API_KEY`**，写在 `~/.config/math-problem-video/.env`（见 `reference/glm-tts-setup.md`）。
-- **没有 key？** 自动兜底（`TTS_ENGINE=auto`）：装了 [edge-tts](https://github.com/rany2/edge-tts) 就用它（免费神经网络音色，需联网），否则用 macOS 自带的 `say`（离线，机械感明显）。也可用 `TTS_ENGINE=glm|edge|say` 指定。
+- 板书模板另需在 `skills/edu-math-video/lesson/` 下 `npm install` 一次（playwright、katex、字体）。
+- 由你自己提供的配音 key（任选其一）：`GLM_API_KEY`、`DOUBAO_API_KEY`（+ `DOUBAO_VOICE`）、`MINIMAX_API_KEY`，写在当前工作目录的 `.env`（`scripts/init_env.sh` 会建好空位；见 `reference/tts-setup.md`）。`python3 skills/edu-math-video/shared/tts.py info` 查看当前会用哪个引擎。
+- **没有 key？** 自动兜底（`TTS_ENGINE=auto`）：装了 [edge-tts](https://github.com/rany2/edge-tts) 就用它（免费神经网络音色，需联网），否则用 macOS 自带的 `say`（离线，机械感明显）。也可用 `TTS_ENGINE=glm|doubao|minimax|edge|say` 指定。
 
 ### 手动跑流水线（不经过 Claude）
 
@@ -166,6 +170,10 @@ cd my_problem
 python3 build_audio.py --check                                      # 脚本 + 读音检查（免费）
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
 python3 build_audio.py && node render.mjs video 6                   # 真配音，然后渲染（6 = 并行页数）
+
+# 板书模板：写好 my_lesson/lesson.json（范例见 lesson/examples/）
+node skills/edu-math-video/lesson/scripts/make.mjs my_lesson/lesson.json --preview             # 免费版面检查
+node skills/edu-math-video/lesson/scripts/make.mjs my_lesson/lesson.json --style lab --tts doubao  # 配音 + 渲染
 ```
 
 ## 技能：edu-physics-video
@@ -189,7 +197,7 @@ anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4   
 
 ### 依赖
 
-与 edu-math-video 相同：Python 3 + `numpy requests pypinyin pillow`；Node.js 18+ + `playwright` + `ffmpeg-static`；智谱 **`GLM_API_KEY`** 写在 `~/.config/math-problem-video/.env`（三个视频技能共用）。没有 key 时 `TTS_ENGINE=auto` 依次用 edge-tts、macOS `say`。
+与 edu-math-video 相同：Python 3 + `numpy requests pypinyin pillow`；Node.js 18+ + `playwright` + `ffmpeg-static`；智谱 **`GLM_API_KEY`** 写在当前工作目录的 `.env`（`scripts/init_env.sh` 会建好空位）。没有 key 时 `TTS_ENGINE=auto` 依次用 edge-tts、macOS `say`。
 
 ### 手动跑流水线（不经过 Claude）
 

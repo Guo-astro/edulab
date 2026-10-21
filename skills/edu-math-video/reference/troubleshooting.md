@@ -8,8 +8,9 @@
 | `ffmpeg not found` | 没装共享依赖 | `cd WS && npm install`（package.json 由 new_video.sh 生成） |
 | `Cannot find package 'playwright'` | 同上，或项目不在 WS 下面 | 视频文件夹必须是 WS 的子目录；`cd WS && npm install` |
 | `browserType.launch: Executable doesn't exist` | 没有 Chrome 也没有 Playwright Chromium | `cd WS && npx playwright install chromium` |
-| `GLM_API_KEY is missing` | 没配 key | 见 glm-tts-setup.md，引导用户 |
-| `TTS failed (401/403/400/429)` | 见 glm-tts-setup.md 报错表 | |
+| `tts.py not found next to pron.py` | 旧工作区只链接了 pron.py | `ln -s SKILL/shared/tts.py WS/`（新版 new_video.sh 会自动做） |
+| `GLM_API_KEY is missing` / `DOUBAO_API_KEY is missing` / `MINIMAX_API_KEY is missing` | 所选引擎没配 key | 见 tts-setup.md，引导用户 |
+| `TTS failed (401/403/400/429)` | 见 tts-setup.md 报错表 | |
 | `Resolve the pronunciation report before TTS` | 还有未固定读音 | 第 7 步，修到 0 |
 | `json.decoder.JSONDecodeError`（script.json / episode.json） | 编辑工具把 JSON 的直引号 `"` 变成了中文弯引号 `“ ”`，或少了逗号 | 用 `PY -m json.tool script.json` 找行号；JSON 语法用的引号必须是英文 `"`（字符串内容里用中文引号没关系）；实在改不好就用 heredoc `cat > script.json <<'EOF'` 整个重写 |
 | 题目图片里有 ☒ / □ 方框 | 字体缺符号 | 用最新的 make_problem_png.py（自动换字体）；截图题不会有这个问题 |

@@ -31,12 +31,12 @@ anim.js + chem.js + engine.js ◄───────────────�
 
 **退出码不是 0 就是没完成。** `--check` 退出码 1（哪怕只剩一个 ⚠ 多音字）、`motion` 退出码 1、`chem_check.py check` 退出码 1、截图有问题，都要修好再往下走。
 
-1. **严格按下面 11 步顺序做，每步的"通过标准"满足了才能进入下一步。**
+1. **严格按下面第 0~11 步顺序做，每步的"通过标准"满足了才能进入下一步。**
 2. **先按化学方法解对题。** 第 1 步写出解题卡（反应类型、限量物质、配平过程、关系、计算、守恒验算），见 [reference/chemistry-solving.md](reference/chemistry-solving.md)；方程式必须用 `chem_check.py` 核对。
 3. **先讲清楚题目。** 第一幕展示原题图片，旁白逐条读条件（"足量""标准状况""2 L 容器"都要读出来并框出）。
 4. **`tts` 只能是能念出来的中文，化学式一律换成名称。** `HNO3` → 硝酸，`SO4^{2-}` → 硫酸根离子，`0.2 mol·L^{-1}` → 零点二摩尔每升，`+5` → 正五价（对照表见 [reference/script-writing.md](reference/script-writing.md)）。字幕 `zh` 照常写化学式（`Cu(NO3)2`、`Fe^{3+}`），会自动排成下标 / 上标。
 5. **读音必须固定。** 调 TTS 之前 `--check` 必须显示 `未固定读音的生僻字/多音字: 0` 且 `script errors: 0`。标注写在字**后面**：`还[huán]原`、`盛[chéng]有`。
-6. **API Key 只能由用户提供。** 缺 `GLM_API_KEY` 时先问用户：配置 key（推荐），还是用兜底引擎（edge-tts / macOS `say`，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。不要编造 key、模型名或接口地址，不要打印 key。
+6. **API Key 只能由用户提供，在第 0 步就检查（`check_key.sh`）。** 缺 `GLM_API_KEY` 时**用 AskUserQuestion 问用户**："填写 key（推荐）"，还是"用系统自带的 say"（装了 edge-tts 时再加"用 edge-tts"）；兜底选项的说明里要写清**效果可能不太好**（机械感明显，断句和读音不如 GLM，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。选填 key 就按 init_env.sh 流程等用户回来；选兜底就在 `<WS>/.env` 加 `TTS_ENGINE=say`（或 edge）。没有明确选择时配音脚本会停下要求先问。不要编造 key、模型名或接口地址，不要打印 key。
 7. **化学画面必须正确。** 化合价、系数、双线桥的起止元素与电子数、单位、分子盒里的数量（写明每个分子代表多少 mol）都要与解题卡一致；颜色约定：失电子 / 升价蓝，得电子 / 降价红。
 8. **版面**：方程式条 y 140~300（`eqStrip` + `equation(spec, 960, EQY)`）；演示区 x 60~900、y 310~860；石板用 `board()` + `bm()`（第 0~8 行）；一切在 y ≤ 860。
 9. **先写分镜，再写动画**：`storyboard.md` 顶部写解题卡 + 图形清单，每句规划"指/动/留"，按 [reference/visual-design.md](reference/visual-design.md) 的化学动作表选动作；`node render.mjs motion` 必须通过。
@@ -44,6 +44,15 @@ anim.js + chem.js + engine.js ◄───────────────�
 11. **不要修改 `engine.js`**；通用化学道具加在 `chem.js`，只属于这道题的图形写在 `anim.js`。不要把 `node_modules`、`package*.json` 复制进视频文件夹。
 
 ## 11 个步骤
+
+### 第 0 步：先确认配音可用（最先做，未通过前不做别的）
+**这一步通过之前不要解题、不要建项目、不要写任何文件**（`init_env.sh` 建的 `.env` 除外）——免得做完一大半才发现不能配音。
+```bash
+bash SKILL/scripts/check_key.sh "$PWD"
+```
+- 打印 `READY`（退出码 0）：进入第 1 步。
+- `NOT READY`（退出码 1）：按它的提示用 AskUserQuestion 问用户——"填写 key（推荐）"，还是"用系统自带的 say"（说明里写清**效果可能不太好**：机械感明显，断句和读音不如 GLM）。选填 key：`init_env.sh` 建好 `.env`，告诉用户完整路径和要填的 `GLM_API_KEY=` 那一行，**然后结束这一轮**，用户回来再跑 `check_key.sh`；选 say：在 `<WS>/.env` 加 `TTS_ENGINE=say` 后再跑一次。
+- **通过标准：** `check_key.sh` 打印 `READY`。
 
 ### 第 1 步：按化学方法解题，写解题卡
 读 [reference/chemistry-solving.md](reference/chemistry-solving.md)。写下：反应类型与限量物质；方程式及配平过程（氧化还原：变价元素、升降数、最小公倍数）；已知量与所求量之间的关系（系数比 / 守恒 / 关系式）；以 n 为中心的每一步计算（单位带着）；平衡题的三段式；守恒验算与易错点。
@@ -60,7 +69,7 @@ bash SKILL/scripts/new_video.sh "$PWD" <ascii_folder_name>
 bash SKILL/scripts/setup_check.sh WS/<ascii_folder_name>
 ```
 - `new_video.sh` 链接共享词表和已有的 `node_modules`；找不到才在 `WS` 下 `npm install`。python 包：`PY -m pip install --user numpy requests pypinyin pillow`。
-- 缺 `GLM_API_KEY`：**停下，按 [reference/glm-tts-setup.md](reference/glm-tts-setup.md) 引导用户**（`~/.config/math-problem-video/.env`，三个视频技能共用）。用户没有 key：`TTS_ENGINE=auto` 自动兜底；装 edge-tts 前先征得同意。
+- 配音 key 已在第 0 步确认过；`setup_check.sh` 这里还报缺 key（比如用户后来改了 `.env`），就回到第 0 步处理。key 只放 `<WS>/.env`，不要去别的目录找。
 - **通过标准：** `setup_check.sh` 输出 `ALL OK`。
 
 ### 第 3 步：测试 TTS

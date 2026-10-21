@@ -28,12 +28,12 @@ anim.js + phys.js + engine.js ◄───────────────�
 
 **退出码不是 0 就是没完成。** `--check` 退出码 1（哪怕只剩一个 ⚠ 多音字）、`motion` 退出码 1、截图里有问题，都不能写"只是警告、不影响"然后继续。修好再往下走。
 
-1. **严格按下面 11 步顺序做，每步的"通过标准"满足了才能进入下一步。**
+1. **严格按下面第 0~11 步顺序做，每步的"通过标准"满足了才能进入下一步。**
 2. **先按物理方法解对题。** 第 1 步必须写出解题卡（研究对象、过程分段、每段受力、所用规律、答案、验算），见 [reference/physics-solving.md](reference/physics-solving.md)。多段过程、符号答案用 sympy 验算。
 3. **先讲清楚题目。** 第一幕展示原题图片，旁白逐条读条件，每读一条就在图上框出那一条。
 4. **`tts` 字段只能是能念出来的中文。** 不能有阿拉伯数字、`= + − × ÷ / ^ √ ° ( )` 等符号，**单位要读出来**：`v₀ = 10 m/s` 写成 `v零等于十米每秒`，`2 m/s²` 写成 `二米每二次方秒`；sin/cos 写成 正弦/余弦；希腊字母按 pronunciation.md 的表写（θ 西塔、φ 菲）。字幕 `zh` 保留正常物理写法（`v_0`、`d_A`、`m/s^2`）。
 5. **读音必须固定。** 调 TTS 之前 `--check` 必须显示 `未固定读音的生僻字/多音字: 0` 且 `script errors: 0`。多音字的标注写在该字**后面**：`长[cháng]`、`调[tiáo]节`。
-6. **API Key 只能由用户提供。** 缺 `GLM_API_KEY` 时先问用户：配置 key（音质最好，推荐），还是用兜底引擎（edge-tts / macOS `say`，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。不要编造 key、模型名或接口地址，不要把 key 打印出来或写进项目文件夹。
+6. **API Key 只能由用户提供，在第 0 步就检查（`check_key.sh`）。** 缺 `GLM_API_KEY` 时**用 AskUserQuestion 问用户**："填写 key（推荐）"，还是"用系统自带的 say"（装了 edge-tts 时再加"用 edge-tts"）；兜底选项的说明里要写清**效果可能不太好**（机械感明显，断句和读音不如 GLM，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。选填 key 就按 init_env.sh 流程等用户回来；选兜底就在 `<WS>/.env` 加 `TTS_ENGINE=say`（或 edge）。没有明确选择时配音脚本会停下要求先问。不要编造 key、模型名或接口地址，不要把 key 打印出来或写进项目文件夹。
 7. **物理画面必须正确。** 力的方向（摩擦力与相对运动相反、弹力垂直接触面）、力箭头按同一比例 `FS`、物体位置来自解析解、特殊角用课本近似值（sin37° = 0.6）与答案一致；小角度放大画时注明 `notToScale()`。
 8. **所有画面内容在 y ≤ 860 以内**（y≈914~1044 是字幕框）。图形放左半边 x 60~900，推导写在右边 `board()` 上，用 `bm()`（支持 `v_0^2` 上下标）。
 9. **先写分镜，再写动画。** `storyboard.md` 顶部写解题卡 + 图形清单，再给每句旁白规划"指/动/留"，按 [reference/visual-design.md](reference/visual-design.md) 的物理动作表选动作；`node render.mjs motion` 必须通过。
@@ -41,6 +41,15 @@ anim.js + phys.js + engine.js ◄───────────────�
 11. **不要修改 `engine.js`**；通用物理道具加在 `phys.js`，只属于这道题的图形写在 `anim.js`。不要把 `node_modules`、`package*.json` 复制进视频文件夹。
 
 ## 11 个步骤
+
+### 第 0 步：先确认配音可用（最先做，未通过前不做别的）
+**这一步通过之前不要解题、不要建项目、不要写任何文件**（`init_env.sh` 建的 `.env` 除外）——免得做完一大半才发现不能配音。
+```bash
+bash SKILL/scripts/check_key.sh "$PWD"
+```
+- 打印 `READY`（退出码 0）：进入第 1 步。
+- `NOT READY`（退出码 1）：按它的提示用 AskUserQuestion 问用户——"填写 key（推荐）"，还是"用系统自带的 say"（说明里写清**效果可能不太好**：机械感明显，断句和读音不如 GLM）。选填 key：`init_env.sh` 建好 `.env`，告诉用户完整路径和要填的 `GLM_API_KEY=` 那一行，**然后结束这一轮**，用户回来再跑 `check_key.sh`；选 say：在 `<WS>/.env` 加 `TTS_ENGINE=say` 后再跑一次。
+- **通过标准：** `check_key.sh` 打印 `READY`。
 
 ### 第 1 步：按物理方法解题，写解题卡
 读 [reference/physics-solving.md](reference/physics-solving.md)。拿到题目（有截图先读图），写下：
@@ -54,7 +63,7 @@ bash SKILL/scripts/new_video.sh "$PWD" <ascii_folder_name>     # WS 就是当前
 bash SKILL/scripts/setup_check.sh WS/<ascii_folder_name>
 ```
 - `new_video.sh` 会把 `pron.py`/`pron.json` 链接到技能自带的共享词表，并在找得到时把 `node_modules` 链接到已有安装；找不到才需要在 `WS` 下 `npm install`。python 包用 `PY -m pip install --user numpy requests pypinyin pillow`。
-- 缺 `GLM_API_KEY`：**停下，按 [reference/glm-tts-setup.md](reference/glm-tts-setup.md) 引导用户**配置（`~/.config/math-problem-video/.env`，与数学视频技能共用）。用户没有 key：`TTS_ENGINE=auto` 自动改用兜底引擎；装 edge-tts 前先征得用户同意。
+- 配音 key 已在第 0 步确认过；`setup_check.sh` 这里还报缺 key（比如用户后来改了 `.env`），就回到第 0 步处理。key 只放 `<WS>/.env`，不要去别的目录找。
 - **通过标准：** `setup_check.sh` 输出 `ALL OK`。
 
 ### 第 3 步：测试 TTS

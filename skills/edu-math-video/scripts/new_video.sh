@@ -5,7 +5,7 @@
 #   Never pick another directory just because it already has .env / node_modules / pron.json.
 # What it does:
 # - copies template/ to <workspace_root>/<folder_name>/ (never node_modules / package*.json)
-# - pron.py + pron.json: symlinks to the skill's shared copies (ONE lexicon for every video; a reading fixed
+# - pron.py + pron.json + tts.py: symlinks to the skill's shared copies (ONE lexicon for every video; a reading fixed
 #   once is fixed everywhere). Existing files in the workspace are left alone.
 # - node_modules: if the workspace has none, symlinks an existing install found above the skill (no 60 MB
 #   re-install); otherwise writes package.json so you can `npm install` once.
@@ -34,7 +34,7 @@ cp -R "$SKILL/template/." "$DEST/"
 rm -rf "$DEST/build" "$DEST/node_modules"
 mkdir -p "$DEST/build"
 
-for f in pron.py pron.json; do
+for f in pron.py pron.json tts.py; do
   if [ ! -e "$WS/$f" ]; then ln -s "$SKILL/shared/$f" "$WS/$f"; echo "linked $WS/$f -> skill shared/$f"; fi
 done
 
