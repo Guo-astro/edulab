@@ -1,17 +1,18 @@
 ---
 name: edu-physics-video
-description: Use when asked to make an explainer / walkthrough video (讲解视频、解题视频、例题精讲、微课) for a physics problem (物理题: mechanics/力学 受力分析 牛顿定律 斜面 传送带 板块 平抛 圆周 能量 动量, optics/光学 折射, electromagnetism/电磁 带电粒子), from a problem screenshot or text, with Chinese voice-over (GLM-TTS / 智谱 TTS), bilingual zh+en subtitles and blueprint-style canvas animation where the motion follows the real solution, rendered to MP4.
+description: Use when asked to make an explainer / walkthrough video (讲解视频、解题视频、例题精讲、微课) for a physics problem (物理题: mechanics/力学 受力分析 牛顿定律 斜面 传送带 板块 平抛 圆周 能量 动量, optics/光学 折射, electromagnetism/电磁 带电粒子), from a problem screenshot or text, with Chinese voice-over (GLM-TTS / 智谱 TTS), bilingual zh+en subtitles and blueprint-style canvas animation where the motion follows the real solution — delivered as a browser preview (index.html) first, MP4 export only if the user wants it.
 ---
 
 # 物理题讲解视频 (edu-physics-video)
 
-把一道物理题做成 16:9、1920×1080、带中文配音 + 中英双语字幕 + 蓝图风格动画的 MP4。流水线与 edu-math-video 相同，区别在**解题方法**和**画面**：先按物理解题流程（建模 → 分段 → 受力 → 选规律 → 求解 → 验算）解对，再让画面把物理过程真实地演出来——力箭头按比例从作用点长出、物体按解析解运动、v-t 图同步生长、摩擦力随运动反向而转向。
+把一道物理题做成 16:9、1920×1080、带中文配音 + 中英双语字幕 + 蓝图风格动画的讲解视频（先给浏览器预览，用户要时再导出 MP4）。流水线与 edu-math-video 相同，区别在**解题方法**和**画面**：先按物理解题流程（建模 → 分段 → 受力 → 选规律 → 求解 → 验算）解对，再让画面把物理过程真实地演出来——力箭头按比例从作用点长出、物体按解析解运动、v-t 图同步生长、摩擦力随运动反向而转向。
 
 ```
 script.json ──build_audio.py──► build/timeline.json + build/mix.wav + ../<name>.srt
      (旁白)     (GLM-TTS + 合成音乐)          │
 anim.js + phys.js + engine.js ◄───────────────┘ (按旁白时间点驱动动画)
-     └──node render.mjs video──► ../<name>.mp4
+     ├──open index.html ──► 浏览器直接播放（预览）
+     └──node render.mjs video──► ../<name>.mp4（用户要时才导出）
 ```
 
 **核心原则：画面跟着旁白走，物理过程在图上真的发生。** 每句旁白都有一个动作把这句物理演出来；每个动画用"第 k 句旁白开始的时刻"`S.at(k, f)` 定时，绝不写死秒数；物体的位置只来自解析解 `x(t)`，用 `simT()` 线性映射时间（可以慢放，不能缓动）。
@@ -120,11 +121,17 @@ cd PROJ && PY build_audio.py && PY build_audio.py --asr && node render.mjs still
 - 真实时长与预览不同，重新看一遍 sheet（慢放倍率也会变）。
 - **通过标准：** `mix + srt written`；`字母读错的句子: 0`（无 GLM key 时 `ASR SKIPPED`，交付时列出含字母的句子请用户重点听）；截图检查通过。
 
-### 第 11 步：渲染视频并交付
+### 第 11 步：打开预览，问要不要导出 MP4，再交付
 ```bash
-cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+open PROJ/index.html
 ```
-- 输出 `WS/<output_name>.mp4` 和 `.srt`。交付时告诉用户：路径、时长、各幕内容、答案；**说明你无法听音频，请用户试听读音**，列出你标注过读音的字和希腊字母。
+- `index.html` 在浏览器里直接播放（带配音和背景音乐）：点画面或空格 播放/暂停，拖进度条跳转，←/→ 快退/快进 5 秒；画面与导出的 MP4 一致。
+- **MP4 是可选项，不要默认导出。** 用户在请求里已经明确要 MP4 文件（发给别人、上传）就直接导出；否则用 AskUserQuestion 问"要不要导出 MP4？"——"先不导出"（`index.html` 依赖项目文件夹里的文件，只能在这台电脑上看）/"导出 MP4"（约需视频时长的 2～3 倍，适合分享、上传、手机上看）。用户选导出：
+  ```bash
+  cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+  ```
+  输出 `WS/<output_name>.mp4`；以后想要随时跑这一条，不用重新配音。
+- 交付时告诉用户：`PROJ/index.html`（直接播放）和 `.srt` 路径，导出了再加 mp4 路径（没导出就提一句"要 MP4 随时说"）；时长、各幕内容、答案；**说明你无法听音频，请用户试听读音**，列出你标注过读音的字和希腊字母。
 
 ## 常见错误
 

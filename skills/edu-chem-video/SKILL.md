@@ -1,11 +1,11 @@
 ---
 name: edu-chem-video
-description: Use when asked to make an explainer / walkthrough video (讲解视频、解题视频、例题精讲、微课) for a chemistry problem (化学题: 氧化还原配平 双线桥 电子守恒, 物质的量计算, 化学平衡 三段式 平衡常数 转化率 反应速率, 离子反应, 电化学, 溶液 滴定, 工业流程), from a problem screenshot or text, with Chinese voice-over (GLM-TTS / 智谱 TTS), bilingual zh+en subtitles and chalkboard-style canvas animation built around the chemical equation, rendered to MP4.
+description: Use when asked to make an explainer / walkthrough video (讲解视频、解题视频、例题精讲、微课) for a chemistry problem (化学题: 氧化还原配平 双线桥 电子守恒, 物质的量计算, 化学平衡 三段式 平衡常数 转化率 反应速率, 离子反应, 电化学, 溶液 滴定, 工业流程), from a problem screenshot or text, with Chinese voice-over (GLM-TTS / 智谱 TTS), bilingual zh+en subtitles and chalkboard-style canvas animation built around the chemical equation — delivered as a browser preview (index.html) first, MP4 export only if the user wants it.
 ---
 
 # 化学题讲解视频 (edu-chem-video)
 
-把一道化学题做成 16:9、1920×1080、带中文配音 + 中英双语字幕 + **黑板粉笔风格**动画的 MP4。流水线与 edu-math-video / edu-physics-video 相同（配音、字幕、检查、渲染），区别在**解题方法**和**画面**：
+把一道化学题做成 16:9、1920×1080、带中文配音 + 中英双语字幕 + **黑板粉笔风格**动画的讲解视频（先给浏览器预览，用户要时再导出 MP4）。流水线与 edu-math-video / edu-physics-video 相同（配音、字幕、检查、渲染），区别在**解题方法**和**画面**：
 - 解题：化学题的主线是"**守恒 + 以物质的量为中心**"：写对并配平方程式（电子守恒 → 原子守恒 → 电荷守恒）→ 找关系（系数比、守恒、关系式）→ 以 n 为中心计算 / 三段式 → 守恒复查。
 - 画面：墨绿黑板 + 粉笔线；**顶部常驻方程式条**，下面左边演示、右边石板。化合价在数轴上升降、电子一组组长到相等、系数从电子行飞进方程式、原子计数条打 ✓、双线桥上电子流动、分子盒按系数比反应、三段式逐行填写。和数学（米色笔记本）、物理（深蓝蓝图）一眼能分开。
 
@@ -13,7 +13,8 @@ description: Use when asked to make an explainer / walkthrough video (讲解视�
 script.json ──build_audio.py──► build/timeline.json + build/mix.wav + ../<name>.srt
      (旁白)     (GLM-TTS + 合成音乐)          │
 anim.js + chem.js + engine.js ◄───────────────┘ (按旁白时间点驱动动画)
-     └──node render.mjs video──► ../<name>.mp4
+     ├──open index.html ──► 浏览器直接播放（预览）
+     └──node render.mjs video──► ../<name>.mp4（用户要时才导出）
 ```
 
 **核心原则：方程式在讲题，守恒被"数"出来。** 每句旁白都有一个动作把这句化学推理演出来；所有比例、数量都从配平后的方程式取（系数飞出去成为比例 / 转化量）；每个动画用 `S.at(k, f)` 定时，绝不写死秒数。
@@ -117,11 +118,17 @@ cd PROJ && PY build_audio.py && PY build_audio.py --asr && node render.mjs still
 ```
 - **通过标准：** `mix + srt written`；`字母读错的句子: 0`（无 GLM key 时 `ASR SKIPPED`，交付时说明）；截图检查通过。
 
-### 第 11 步：渲染视频并交付
+### 第 11 步：打开预览，问要不要导出 MP4，再交付
 ```bash
-cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率）
+open PROJ/index.html
 ```
-- 交付：mp4/srt 路径、时长、各幕内容、答案；**说明你无法听音频，请用户试听**，列出标注过读音的字和化学名称。
+- `index.html` 在浏览器里直接播放（带配音和背景音乐）：点画面或空格 播放/暂停，拖进度条跳转，←/→ 快退/快进 5 秒；画面与导出的 MP4 一致。
+- **MP4 是可选项，不要默认导出。** 用户在请求里已经明确要 MP4 文件（发给别人、上传）就直接导出；否则用 AskUserQuestion 问"要不要导出 MP4？"——"先不导出"（`index.html` 依赖项目文件夹里的文件，只能在这台电脑上看）/"导出 MP4"（约需视频时长的 2～3 倍，适合分享、上传、手机上看）。用户选导出：
+  ```bash
+  cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+  ```
+  输出 `WS/<output_name>.mp4`；以后想要随时跑这一条，不用重新配音。
+- 交付：`PROJ/index.html`（直接播放）和 srt 路径，导出了再加 mp4 路径（没导出就提一句"要 MP4 随时说"）；时长、各幕内容、答案；**说明你无法听音频，请用户试听**，列出标注过读音的字和化学名称。
 
 ## 常见错误
 

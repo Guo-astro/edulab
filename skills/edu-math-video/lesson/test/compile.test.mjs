@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compile, anchorTime, captionText, toSrt } from '../scripts/compile.mjs';
+import { compile, anchorTime, captionText, toSrt, rawMath, writeDur } from '../scripts/compile.mjs';
 
 const voice = (d, words) => ({ file: 'x.mp3', duration: d, words });
 const W = (w, s, e) => ({ w, s, e });
@@ -52,4 +52,15 @@ test('long captions are split at punctuation and stay in order', async () => {
   out.forEach((c) => assert.ok(c.text.length <= 26, c.text));
   for (let i = 1; i < out.length; i++) assert.ok(out[i].at >= out[i - 1].at);
   assert.equal(out[0].at, 10);
+});
+
+test('plain-text formulas on the board are flagged, KaTeX and {names} are not', () => {
+  for (const s of ['{B} = (4√3,−4,0)', '{AE}²+{EF}²', '{AE} = (2/5){AD}', 'cos = |a|/(|b|)', 'sinθ', '{MN} = ½{BC}']) assert.ok(rawMath(s), s);
+  for (const s of ['$B=(4\\sqrt3,-4,0)$', '∠{AEF} = 90°', '{EF} ⊥ {AD}，{EF} ∥ {CD}', '第(1)问', '由 $PE\\perp EF$ 得']) assert.equal(rawMath(s), null, s);
+  const L = { scenes: [{ title: 'T', beats: [{ say: '甲。', do: [{ write: '{x} = √2' }, { tip: '$\\sqrt2$' }] }] }] };
+  assert.equal(compile(L, [voice(1, [])]).warnings.filter((w) => w.includes('KaTeX')).length, 1);
+});
+
+test('KaTeX lines get writing time from their visible glyphs', () => {
+  assert.ok(writeDur('$\\cos\\theta=\\dfrac{|\\vec n_1\\cdot\\vec n_2|}{|\\vec n_1||\\vec n_2|}$') > writeDur('$x=1$') + 0.5);
 });

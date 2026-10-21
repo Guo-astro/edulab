@@ -7,11 +7,12 @@
   const CAP_HOLD = 1.5; // seconds a caption may stay up after its audio ends
 
   const call = (x, L) => (typeof x === 'function' ? x(L) : x || '');
+  // [\s\S]: KaTeX markup contains newlines
   const mark = (html) => html
-    .replace(/\*\*(.+?)\*\*/g, '<span class="k">$1</span>')
-    .replace(/==(.+?)==/g, '<span class="hl">$1</span>')
-    .replace(/!!(.+?)!!/g, '<span class="concl">$1</span>');
-  const ELLIPSE = '<svg class="emph-ellipse" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M10 22 C 6 6, 90 0, 96 16 C 101 32, 20 42, 6 26 C 3 20, 14 10, 26 7" fill="none" vector-effect="non-scaling-stroke"/></svg>';
+    .replace(/\*\*([\s\S]+?)\*\*/g, '<span class="k">$1</span>')
+    .replace(/==([\s\S]+?)==/g, '<span class="hl">$1</span>')
+    .replace(/!!([\s\S]+?)!!/g, '<span class="concl">$1</span>');
+  const ELLIPSE = '<svg class="emph-ellipse" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M10 22 C 6 4, 92 0, 97 18 C 102 38, 20 42, 6 26 C 3 20, 14 10, 26 7" fill="none" vector-effect="non-scaling-stroke"/></svg>';
 
   let S = null; // current player state
 

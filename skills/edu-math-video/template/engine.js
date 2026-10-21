@@ -652,12 +652,37 @@ function boot() {
     renderFrame(0);
     return true;
   })();
-  if (!/render=1/.test(location.search)) {  // interactive preview in a browser
-    const au = document.getElementById('au'), seek = document.getElementById('seek'), btn = document.getElementById('play');
-    btn.onclick = () => { if (au.paused) { au.play(); btn.textContent = '❚❚ 暂停 Pause'; } else { au.pause(); btn.textContent = '▶ 播放 Play'; } };
-    seek.oninput = () => { const tt = seek.value / 1000 * TL.duration; au.currentTime = tt; renderFrame(tt); };
-    const loop = () => { if (!au.paused) { renderFrame(au.currentTime); seek.value = au.currentTime / TL.duration * 1000; } requestAnimationFrame(loop); };
-    window.ready.then(loop);
+  if (!/render=1/.test(location.search)) {  // interactive preview: click / space = play-pause, drag the bar, ←/→ = ±5 s
+    const au = document.getElementById('au'), seek = document.getElementById('seek'), btn = document.getElementById('play'), tm = document.getElementById('tm');
+    const silent = !au.getAttribute('src');  // --preview build has no audio: run on the clock
+    let t = 0, playing = false, last = 0;
+    const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const show = () => { renderFrame(t); seek.value = t / TL.duration * 1000; tm.textContent = `${fmt(t)} / ${fmt(TL.duration)}`; btn.textContent = playing ? '❚❚ 暂停 Pause' : '▶ 播放 Play'; };
+    const go = tt => { t = Math.max(0, Math.min(TL.duration, tt)); if (!silent) au.currentTime = t; show(); };
+    const toggle = () => {
+      if (!playing && t >= TL.duration - 0.05) go(0);
+      playing = !playing; last = performance.now();
+      if (!silent) { if (playing) au.play().catch(() => { playing = false; show(); }); else au.pause(); }
+      show();
+    };
+    btn.onclick = () => { toggle(); btn.blur(); };
+    document.getElementById('c').onclick = toggle;
+    seek.oninput = () => go(seek.value / 1000 * TL.duration);
+    addEventListener('keydown', e => {
+      if (e.code === 'Space') { e.preventDefault(); toggle(); }
+      else if (e.target !== seek && e.key === 'ArrowLeft') go(t - 5);
+      else if (e.target !== seek && e.key === 'ArrowRight') go(t + 5);
+    });
+    au.onended = () => { playing = false; t = TL.duration; show(); };
+    const loop = now => {
+      if (playing) {
+        t = silent ? Math.min(TL.duration, t + (now - last) / 1000) : au.currentTime;
+        if (silent && t >= TL.duration) playing = false;
+        show();
+      }
+      last = now; requestAnimationFrame(loop);
+    };
+    window.ready.then(() => { show(); requestAnimationFrame(loop); });
   } else {
     document.body.classList.add('render');
   }

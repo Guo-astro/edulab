@@ -9,8 +9,10 @@ import { pathToFileURL } from 'node:url';
 import { launch, openStage } from './browser.mjs';
 import { parseArgs } from './build.mjs';
 
-export function keyTimes(tl) {
+export function keyTimes(tl, pageStarts = []) {
   const ts = new Set();
+  // a full column flips to a new page mid-scene: capture the full page just before the wipe
+  pageStarts.slice(1).forEach((t) => ts.add(+(t - 0.55).toFixed(2)));
   const writes = tl.ops.filter((o) => o.kind === 'write');
   // just before every scene change / page wipe, the board is at its fullest
   tl.scenes.slice(1).forEach((s) => ts.add(+(s.at - 0.05).toFixed(2)));
@@ -74,7 +76,8 @@ export async function check(outDir, { times } = {}) {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
     const shots = [], seen = new Set();
-    for (const t of times || keyTimes(tl)) {
+    const pageStarts = await page.evaluate(() => SV.state().pages.map((p) => p.start));
+    for (const t of times || keyTimes(tl, pageStarts)) {
       await seek(t);
       for (const c of await page.evaluate(collisions)) {
         const k = JSON.stringify(c);

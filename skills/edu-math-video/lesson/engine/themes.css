@@ -9,14 +9,14 @@ html,body{margin:0;padding:0}
 .stage .lw{position:relative;width:fit-content}
 .m{font-family:KaTeX_Math,"Times New Roman",serif;font-style:italic;letter-spacing:.02em}
 .m sub{font-family:KaTeX_Main,serif;font-style:normal;font-size:.62em;vertical-align:-.28em}
-.stage .katex{font-size:1.02em}
+.stage .katex{font-size:1.02em;display:inline-block;margin:.22em 0}  /* margin keeps tall formulas (\dfrac, \sqrt) clear of neighbouring lines */
 [data-fx=write]{clip-path:inset(-40% calc((1 - var(--p,0)) * 100%) -40% -3%)}
 [data-fx=fade]{opacity:var(--e,0);transform:translateY(calc((1 - var(--e,0)) * 12px))}
 [data-fx=pop]{opacity:min(1,calc(var(--p,0) * 2.5));transform:rotate(var(--rot,0deg)) scale(calc(.4 + .6 * var(--b,0)))}
 [data-fx=stamp]{opacity:min(1,calc(var(--p,0) * 3));transform:rotate(var(--rot,-12deg)) scale(calc(2.4 - 1.4 * var(--e,0)))}
 .stage .hl{position:relative}
 .stage .hl::before{content:"";position:absolute;left:-5px;right:-5px;top:40%;bottom:4%;border-radius:4px 12px 5px 14px;transform:skewX(-8deg) scaleX(var(--e,0));transform-origin:left;z-index:-1}
-.stage .emph-ellipse{position:absolute;left:-34px;top:-14px;width:calc(100% + 68px);height:calc(100% + 28px);overflow:visible}
+.stage .emph-ellipse{position:absolute;left:-34px;top:calc(-14px - 12%);width:calc(100% + 68px);height:calc(100% + 28px + 24%);overflow:visible}  /* % part: room for tall formulas */
 .stage .emph-box{position:absolute;inset:-4px -18px;border-radius:8px}
 .stage .emph-stamp{position:absolute;left:calc(100% + 18px);top:50%;margin-top:-52px;width:104px;height:104px;border-radius:50%;display:grid;place-items:center;text-align:center;line-height:1.1}
 .stage .viewtag{position:absolute;right:0;top:-30px;white-space:nowrap;font-size:19px;padding:4px 14px;border-radius:999px;border:1.5px solid currentColor;z-index:5}

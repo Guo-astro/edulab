@@ -8,7 +8,8 @@
 script.json ──build_audio.py──► build/timeline.json + build/mix.wav + ../<name>.srt
      (旁白)     (TTS + 合成音乐)              │
 anim.js + engine.js ◄─────────────────────────┘ (按旁白时间点驱动动画)
-     └──node render.mjs video──► ../<name>.mp4
+     ├──open index.html ──► 浏览器直接播放（预览）
+     └──node render.mjs video──► ../<name>.mp4（用户要时才导出）
 ```
 
 **核心原则：画面跟着旁白走，而且图会"讲题"。** 每句旁白，图上都有一个动作把这句推理演出来（线段滑过去重合、三角形叠上去、相机转到俯视、动点移动……），不是只多出一条线、一个标签。每个动画都用"第 k 句旁白开始的时刻"`S.at(k, f)` 定时，绝不写死秒数。
@@ -104,12 +105,18 @@ cd PROJ && PY build_audio.py && PY build_audio.py --asr && node render.mjs still
 - 真实时长与预览不同，重新看一遍 sheet。
 - **通过标准：** 打印 `mix + srt written`；`--asr` 显示 `字母读错的句子: 0`（没有 GLM key 时显示 `ASR SKIPPED`：交付时告诉用户字母读音没有机器核对，列出含点名的句子请用户重点听）；截图检查通过。
 
-### 第 11 步：渲染视频并交付
+### 第 11 步：打开预览，问要不要导出 MP4，再交付
 ```bash
-cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+open PROJ/index.html
 ```
-- 输出 `WS/<output_name>.mp4` 和 `WS/<output_name>.srt`（WS = 用户的当前目录）。2~3 分钟的视频约需几分钟。
-- 交付时告诉用户：mp4/srt 路径、时长、各幕内容；**说明你无法听音频，请用户试听读音**，特别列出你标注过读音的字。用户反馈读错时：加到 `pron.json` 或行内标注 → 再跑第 10、11 步（只会重合成改过的句子）。
+- `index.html` 在浏览器里直接播放（带配音和背景音乐）：点画面或空格 播放/暂停，拖进度条跳转，←/→ 快退/快进 5 秒。画面与导出的 MP4 完全一致。
+- **MP4 是可选项**：用户在请求里已经明确要 MP4 文件（发给别人、上传）就直接导出；否则用 AskUserQuestion 问"要不要导出 MP4？"——"先不导出"（`index.html` 依赖项目文件夹里的文件，只能在这台电脑上看）/"导出 MP4"（约需视频时长的 2～3 倍，适合分享、上传、手机上看）。
+- 用户选导出：
+  ```bash
+  cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+  ```
+  输出 `WS/<output_name>.mp4`。以后想要 MP4 随时跑这一条，不用重新配音。
+- 交付时告诉用户：`PROJ/index.html`（直接播放）和 `WS/<output_name>.srt` 路径，导出了再加 mp4 路径；时长、各幕内容；没导出时提一句"要 MP4 随时说"。**说明你无法听音频，请用户试听读音**，特别列出你标注过读音的字。用户反馈读错时：加到 `pron.json` 或行内标注 → 再跑第 10 步（只会重合成改过的句子），导出过 MP4 的再导出一次。
 
 ## 常见错误（真实发生过）
 

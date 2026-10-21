@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Full build: lint + pronunciation check -> TTS + mix -> stills for review -> video.
-# Usage: ./make.sh [workers]      (PY=/path/to/python3 ./make.sh to choose the interpreter)
+# Full build: lint + pronunciation check -> TTS + mix -> stills for review (MP4 only with `video`).
+# Usage: ./make.sh (build + preview: open index.html)   ./make.sh video [workers] (also export the MP4)      (PY=/path/to/python3 ./make.sh to choose the interpreter)
 set -euo pipefail
 cd "$(dirname "$0")"
 if [ -z "${PY:-}" ]; then
@@ -10,4 +10,4 @@ fi
 "$PY" build_audio.py
 node render.mjs motion
 node render.mjs stills auto
-node render.mjs video "${1:-6}"
+if [ "${1:-}" = video ]; then node render.mjs video "${2:-6}"; else echo "preview: open $(pwd)/index.html   (MP4: ./make.sh video)"; fi

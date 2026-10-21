@@ -230,7 +230,7 @@ chip('AC = 3', 800, C.blue, P(at(1, 0.8), 0.5));      // 下方小标签
 
 需要看动画中间状态时：`node render.mjs stills 12.5,13,13.5`（秒数可从 `build/timeline.json` 里每句的 start/end 查）。
 
-浏览器实时预览（可选，用户想自己看时）：用任意静态服务器在 PROJ 目录打开 `index.html`（如 `npx http-server PROJ` 或 `PY -m http.server`），有播放按钮和进度条。
+浏览器预览：配音生成后（`render.mjs stills` 会写 `build/timeline.js`）直接 `open PROJ/index.html`，不需要服务器；点画面或空格 播放/暂停，拖进度条跳转，←/→ 快退/快进 5 秒。
 
 ## 常见坑
 - 用了 anim.js 里没定义的函数名 → 截图时报 `PAGE ERROR ... is not defined`，该帧后半部分空白。

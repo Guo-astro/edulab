@@ -7,10 +7,19 @@ export const FIG_DUR = { seg: 0.7, poly: 0.5, face: 0.5, dot: 0.25, point: 0.3, 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const SUBS = '₀₁₂₃₄₅₆₇₈₉';
 
-export const visibleText = (s) => String(s).replace(/\$[^$]*\$/g, 'xx').replace(/\*\*|==|!!/g, '').replace(/[{}]/g, '');
+// $\sqrt{3}$ ≈ 2 glyphs: a command counts as one, braces / ^ / _ as none
+const texGlyphs = (src) => src.replace(/\\[a-zA-Z]+/g, 'x').replace(/[{}^_\\\s]/g, '');
+export const visibleText = (s) => String(s).replace(/\$([^$]*)\$/g, (_, t) => texGlyphs(t)).replace(/\*\*|==|!!/g, '').replace(/[{}]/g, '');
 export const writeDur = (s) => clamp(visibleText(s).length * 0.085, 0.5, 2.4);
 // caption text: {BC1} → BC₁, markup removed
 export const captionText = (s) => stripPron(s).replace(/\{([^{}]+)\}/g, (_, x) => x.replace(/\d/g, (d) => SUBS[d])).replace(/\*\*|==|!!/g, '').replace(/\$([^$]*)\$/g, '$1');
+
+// Formulas typed as plain Unicode (4√3, x², n₁, 1/2, θ) look rough on the board: they must be $…$ (KaTeX).
+const RAW_MATH = /[√¹²³⁰⁴-⁹⁻₀-₉½⅓⅔¼¾θαβγφπ]|\d\s*\/\s*\d|[)|]\s*\/\s*[(|√\d]/;
+export function rawMath(s) {
+  const rest = String(s).replace(/\$[^$]*\$/g, ' ').replace(/\{[^{}]+\}/g, 'X');
+  return RAW_MATH.test(rest) ? String(s).slice(0, 40) : null;
+}
 
 const norm = (s) => toSpeak(stripPron(s)).replace(/[\s，。、；：！？,.!?（）()“”"'—-]/g, '');
 
@@ -57,11 +66,13 @@ export function compile(lesson, voices) {
   const ops = [], captions = [], audio = [], scenes = [], warnings = [];
   let cur = 0.6, id = 0, bi = 0, lastWrite = null, writeFree = 0;
   const byId = {};
+  const lint = (s) => { const r = s != null && rawMath(s); if (r) warnings.push(`公式请用 $…$（KaTeX）写，不要用纯文本符号："${r}"`); };
   lesson.scenes.forEach((sc, si) => {
     const sAt = si === 0 ? 0.3 : cur;
     ops.push({ kind: 'scene', at: sAt, index: si });
     scenes.push({ title: sc.title || '', short: sc.short || sc.title || '', at: sAt });
     const tStart = sAt + (si === 0 ? 0.6 : ERASE);
+    lint(sc.title); lint(sc.goal);
     if (sc.title || sc.goal) {
       const w = { kind: 'write', id: 'L' + id++, role: 'title', tag: sc.title, text: sc.goal || '', at: Math.max(tStart, writeFree), dur: writeDur(sc.goal || sc.title) };
       ops.push(w); lastWrite = w.id; writeFree = w.at + w.dur;
@@ -81,6 +92,7 @@ export function compile(lesson, voices) {
         if (rel == null) rel = acts.length > 1 ? (i / acts.length) * d * 0.9 : 0;
         let at = t0 + rel + (a.delay || 0);
         let op;
+        lint(a.write); lint(a.tip); lint(a.tag);
         if (a.write != null) {
           at = Math.max(at, writeFree + 0.05);
           op = { kind: 'write', id: a.id || 'L' + id++, text: a.write, role: a.role, at, dur: a.dur || writeDur(a.write) };
