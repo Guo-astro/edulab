@@ -134,7 +134,7 @@ python3 lib/reaction_kernel.py                              # kernel built-in se
 
 ## Skill: edu-math-video
 
-![edu-math-video demo](edu-math-video.jpg)
+![edu-math-video demo](edu-math-video.png)
 
 Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer MP4** with Chinese voice-over. Input is a problem screenshot or plain text.
 

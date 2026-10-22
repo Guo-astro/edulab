@@ -13,6 +13,8 @@ test('tex: math token gets italic span with subscripts', () => {
 
 test('tex: $...$ goes through KaTeX, plain text is escaped', () => {
   assert.match(SV.tex('$x^2$'), /class="katex"/);
+  assert.match(SV.tex('$x$，求 $y$。'), /^<span class="nb">.*，<\/span>求 <span class="nb">.*。<\/span>$/s);  // punctuation stays with its formula
+  assert.doesNotMatch(SV.tex('!!$y=2$!!'), /nb/);  // !!…!! markup is not glued
   assert.equal(SV.tex('a<b'), 'a&lt;b');
 });
 

@@ -36,7 +36,11 @@
   // "{BC1}" → italic math with subscript digits; "$...$" → KaTeX; everything else escaped text.
   function tex(str) {
     const katex = G.katex || SV._katex;
-    return String(str).split(/(\$[^$]+\$|\{[^{}]+\})/g).map((part) => {
+    // a formula keeps the punctuation right after it ("$x$，") so a wrapped line never starts with "，"
+    const parts = String(str).split(/(\$[^$]+\$[，。、；：！？,.;:?）)」』]*|\{[^{}]+\})/g);
+    return parts.map((part) => {
+      const m = /^(\$[^$]+\$)([，。、；：！？,.;:?）)」』]+)$/.exec(part);
+      if (m) return `<span class="nb">${tex(m[1])}${esc(m[2])}</span>`;
       if (/^\$[^$]+\$$/.test(part)) {
         const src = part.slice(1, -1);
         return katex ? katex.renderToString(src, { throwOnError: false }) : `<span class="m">${esc(src)}</span>`;

@@ -134,7 +134,7 @@ python3 lib/reaction_kernel.py                              # kernel 内置自�
 
 ## 技能：edu-math-video
 
-![edu-math-video 演示](edu-math-video.jpg)
+![edu-math-video 演示](edu-math-video.png)
 
 把一道数学题（几何、代数、函数、行程问题……）做成 **16:9、1920×1080 的讲解视频 MP4**，输入可以是题目截图或文字。
 

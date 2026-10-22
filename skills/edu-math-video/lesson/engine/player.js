@@ -63,12 +63,10 @@
         anim.push({ el: s, at: o.at, dur: 0.35, fx: 'stamp' });
       }
     }
-    // ---- reading the problem: the segment being read lights up ----
+    // ---- reading the problem: the segment being read turns the theme's highlight colour ----
     for (const o of L.ops.filter((x) => x.kind === 'read')) {
       const ln = lines[o.target];
-      if (!ln) continue;
-      const m = document.createElement('div'); m.className = 'readmark'; ln.lw.prepend(m);
-      anim.push({ el: m, at: o.at, dur: o.dur, out: o.out, fx: 'read' });
+      if (ln) anim.push({ el: ln.lw, at: o.at, dur: o.dur, out: o.out, fx: 'read' });
     }
     // ---- tips ----
     for (const o of L.ops.filter((x) => x.kind === 'tip')) {

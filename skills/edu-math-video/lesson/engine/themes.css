@@ -19,8 +19,10 @@ html,body{margin:0;padding:0}
 .stage .emph-ellipse{position:absolute;left:-34px;top:calc(-14px - 12%);width:calc(100% + 68px);height:calc(100% + 28px + 24%);overflow:visible}  /* % part: room for tall formulas */
 .stage .lw.q{width:100%;margin-bottom:.3em}
 .stage .ln.problem{white-space:normal;width:auto;font-size:.9em;line-height:1.75}
-.stage .readmark{position:absolute;inset:-3px -12px;border-radius:6px;opacity:var(--e,0);background:rgba(255,214,102,.13);box-shadow:inset 4px 0 0 rgba(255,214,102,.85)}
-.th-whiteboard .readmark,.th-notebook .readmark{background:rgba(255,212,59,.3);box-shadow:inset 4px 0 0 #f59f00}
+.stage .lw.q{--r:var(--e,0)}  /* --e of the lw's "read" animation, renamed so the line's own write --e does not shadow it */
+.stage .ln.problem{color:color-mix(in srgb,var(--rc) calc(var(--r) * 100%),currentColor)}
+.th-chalk{--rc:#ffe36e}.th-lab{--rc:#ffd166}.th-whiteboard{--rc:#e03131}.th-notebook{--rc:#e8590c}
+.stage .nb{white-space:nowrap}
 .stage .emph-box{position:absolute;inset:-4px -18px;border-radius:8px}
 .stage .emph-stamp{position:absolute;left:calc(100% + 18px);top:50%;margin-top:-52px;width:104px;height:104px;border-radius:50%;display:grid;place-items:center;text-align:center;line-height:1.1}
 .stage .viewtag{position:absolute;right:0;top:-30px;white-space:nowrap;font-size:19px;padding:4px 14px;border-radius:999px;border:1.5px solid currentColor;z-index:5}
