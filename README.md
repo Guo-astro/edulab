@@ -136,9 +136,9 @@ python3 lib/reaction_kernel.py                              # kernel built-in se
 
 ![edu-math-video demo](edu-math-video.png)
 
-Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer MP4** with Chinese voice-over. Input is a problem screenshot or plain text.
+Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer video** with Chinese voice-over. Input is a problem screenshot or plain text. **You get a browser preview first** (plays directly, seekable); exporting the MP4 is optional and asked at the end.
 
-- **Five visual templates**: `handdrawn` (hand-drawn notebook-style canvas animation driven by the narration timeline, bilingual zh + en subtitles, background music) and four board styles — `chalk`, `lab`, `whiteboard`, `notebook` — written as a declarative `lesson.json` (auto board layout, auto-rotating 3D figures with live hidden-line computation, style switchable in the preview page).
+- **Five visual templates**: `handdrawn` (hand-drawn notebook-style canvas animation driven by the narration timeline, bilingual zh + en subtitles, background music) and four board styles — `chalk`, `lab`, `whiteboard`, `notebook` — written as a declarative `lesson.json` (auto board layout, auto-rotating 3D figures with live hidden-line computation; opens by writing the problem on the board and reading it segment by segment, the segment being read changing color; formulas typeset in LaTeX via KaTeX; no need to pick a style up front — switch styles in the preview page and choose at the end).
 - **Five TTS engines**: Zhipu **GLM-TTS**, **Doubao** seed-tts 2.0, **MiniMax** (Doubao and MiniMax return word timestamps, so board actions sync to the exact word), plus free fallbacks edge-tts / macOS `say`. Both pipelines share `shared/tts.py`.
 
 **The picture explains the step**: every narration line gets a "point → move → keep" action on the figure (equal segments slide onto each other, congruent triangles overlay, the 3D camera tweens to a top view, a cone unrolls into a sector…) — timed by `S.at(k, f)` (a fraction into line *k*), never by hard-coded seconds. A `motion` check rejects static lines.
@@ -146,11 +146,14 @@ Turns one math problem (geometry, algebra, functions, motion problems…) into a
 **Pipeline** (one folder per video, created in the user's current directory):
 
 ```
-script.json ──build_audio.py──► timeline.json + mix.wav + <name>.srt   (GLM-TTS + synthesized music)
-anim.js + engine.js ──node render.mjs video──► <name>.mp4              (Playwright + ffmpeg, 30 fps)
+handdrawn: script.json ──build_audio.py──► timeline.json + mix.wav + <name>.srt   (TTS + synthesized music)
+           anim.js + engine.js ──► index.html (plays in a browser) ──node render.mjs video──► <name>.mp4 (optional)
+board:     lesson.json ──make.mjs──► preview.html (plays in a browser) + subtitles.srt ──render.mjs──► video.mp4 (optional)
 ```
 
-**Guard rails**: the first scene shows the original problem with each condition boxed as it is read; `tts` text must be speakable Chinese (no digits / math symbols); polyphones are pinned (`长[cháng]`, shared `pron.json` lexicon) and `--check` must report 0 before any paid TTS call; a free `--preview` + contact-sheet review comes before real audio; `--asr` transcribes the audio back to catch misread letters.
+**Flow**: step 0 checks that the TTS key works (if not, it creates `.env` for you to fill in and waits) → solve and verify → free preview of layout and pronunciation → real voice-over → open the web preview → ask whether to switch the board style and whether to export an MP4.
+
+**Guard rails**: the first scene shows the original problem (handdrawn boxes each condition; board styles read it segment by segment); board formulas must be LaTeX (plain-text `4√3`, `x²` are rejected); `tts` text must be speakable Chinese (no digits / math symbols); polyphones are pinned (`长[cháng]`, shared `pron.json` lexicon) and `--check` must report 0 before any paid TTS call; a free `--preview` + contact-sheet review comes before real audio; `--asr` transcribes the audio back to catch misread letters.
 
 **Trigger words**: math explainer video, walkthrough video, problem-solving video, micro-lesson; 讲解视频、解题视频、例题精讲、微课 etc.
 
@@ -159,7 +162,7 @@ anim.js + engine.js ──node render.mjs video──► <name>.mp4             
 - Python 3 with `numpy requests pypinyin pillow`; Node.js 18+ with `playwright` + `ffmpeg-static` (installed once in the workspace — `scripts/new_video.sh` writes the `package.json`); Google Chrome or Playwright Chromium.
 - Board templates: `npm install` once in `skills/edu-math-video/lesson/` (playwright, katex, fonts).
 - A TTS key provided by you (any one): `GLM_API_KEY`, `DOUBAO_API_KEY` (+ `DOUBAO_VOICE`), or `MINIMAX_API_KEY`, in the `.env` of the directory you work in (`scripts/init_env.sh` creates it with empty slots; see `reference/tts-setup.md`). `python3 skills/edu-math-video/shared/tts.py info` shows which engine will be used.
-- **No key?** It falls back automatically (`TTS_ENGINE=auto`): [edge-tts](https://github.com/rany2/edge-tts) if installed (free neural voices, needs internet), else macOS `say` (offline, robotic). Force one with `TTS_ENGINE=glm|doubao|minimax|edge|say`.
+- **No key?** It never silently switches to a free voice: Claude asks whether you want to add a key or use the free [edge-tts](https://github.com/rany2/edge-tts) (needs internet) / macOS `say` (offline, robotic, lower quality). When running by hand, choose one explicitly with `TTS_ENGINE=edge|say`; `TTS_ENGINE=glm|doubao|minimax` and `VIDEO_TEMPLATE=<template>` set your defaults.
 
 ### Run the pipeline by hand (without Claude)
 
@@ -169,14 +172,22 @@ bash skills/edu-math-video/scripts/setup_check.sh my_problem        # must print
 cd my_problem
 python3 build_audio.py --check                                      # script + pronunciation lint (free)
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
-python3 build_audio.py && node render.mjs video 6                   # real TTS, then render (6 = parallel pages)
+python3 build_audio.py && node render.mjs stills auto                # real TTS (stills also writes build/timeline.js for the preview)
+open index.html                                                     # plays in the browser: click/space, drag the bar, ←/→ = 5 s
+node render.mjs video 6                                             # optional: export the MP4 (6 = parallel pages); or ./make.sh video
+
+# Board templates: write my_lesson/lesson.json (with the problem-reading "intro"; examples in lesson/examples/)
+node skills/edu-math-video/lesson/scripts/make.mjs my_lesson/lesson.json --preview             # free layout check (no TTS)
+node skills/edu-math-video/lesson/scripts/make.mjs my_lesson/lesson.json --style lab --tts doubao  # real TTS + preview.html (no MP4)
+open my_lesson/preview.html                                                                    # plays in the browser; switch styles bottom-right
+node skills/edu-math-video/lesson/scripts/render.mjs my_lesson                                 # optional: export the MP4 (or make.mjs --render)
 ```
 
 ## Skill: edu-physics-video
 
 ![edu-physics-video demo](edu-physics-video.jpg)
 
-Turns one physics problem (mechanics, optics, electromagnetism…) into a **16:9 1920×1080 explainer MP4**: Chinese voice-over (Zhipu **GLM-TTS**), bilingual zh + en subtitles (`.srt` too), and blueprint-style canvas animation driven by the narration timeline. Input is a problem screenshot or plain text. Same pipeline as edu-math-video; what changes is the solving method and the picture.
+Turns one physics problem (mechanics, optics, electromagnetism…) into a **16:9 1920×1080 explainer video** (browser preview `index.html` first, MP4 export optional): Chinese voice-over (Zhipu **GLM-TTS**), bilingual zh + en subtitles (`.srt` too), and blueprint-style canvas animation driven by the narration timeline. Input is a problem screenshot or plain text. Same pipeline as edu-math-video; what changes is the solving method and the picture.
 
 **The picture follows the physics**: model the object, split the motion into segments, draw the forces, pick a law, solve, then check. Force arrows grow from the point of application on one scale, the object moves on the analytic solution `x(t)` through a linear `simT()` map, the v–t graph grows in sync, and friction reverses when the relative motion does. Timed by `S.at(k, f)`.
 
@@ -184,7 +195,7 @@ Turns one physics problem (mechanics, optics, electromagnetism…) into a **16:9
 
 ```
 script.json ──build_audio.py──► timeline.json + mix.wav + <name>.srt   (GLM-TTS + synthesized music)
-anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4    (Playwright + ffmpeg, 30 fps)
+anim.js + phys.js + engine.js ──► index.html (plays in a browser) ──node render.mjs video──► <name>.mp4 (optional)
 ```
 
 **Guard rails**: the first scene shows the original problem with each condition boxed as it is read; `tts` text must be speakable Chinese (units read aloud; no digits or math symbols; θ is 西塔); polyphones are pinned and `--check` must report 0 before any paid TTS call; a free `--preview` plus a contact-sheet review comes before real audio; `--asr` transcribes the audio back to catch misread letters. Shared physics props go in `phys.js`. Leave `engine.js` unchanged.
@@ -193,7 +204,7 @@ anim.js + phys.js + engine.js ──node render.mjs video──► <name>.mp4   
 
 ### Dependency
 
-Same as edu-math-video: Python 3 with `numpy requests pypinyin pillow`, Node.js 18+ with `playwright` + `ffmpeg-static`, and a Zhipu **`GLM_API_KEY`** in the `.env` of the directory you work in (`scripts/init_env.sh` creates it with an empty slot). No key → `TTS_ENGINE=auto` falls back to [edge-tts](https://github.com/rany2/edge-tts), then macOS `say`.
+Same as edu-math-video: Python 3 with `numpy requests pypinyin pillow`, Node.js 18+ with `playwright` + `ffmpeg-static`, and a Zhipu **`GLM_API_KEY`** in the `.env` of the directory you work in (`scripts/init_env.sh` creates it with an empty slot). The key is checked first; with no key there is no silent fallback — set `TTS_ENGINE=edge|say` to use the free [edge-tts](https://github.com/rany2/edge-tts) or macOS `say` (lower quality).
 
 ### Run the pipeline by hand (without Claude)
 
@@ -210,7 +221,7 @@ python3 build_audio.py && node render.mjs video 6
 
 ![edu-chem-video demo](edu-chem-video.jpg)
 
-Turns one chemistry problem (redox balancing and the double-line bridge, amount of substance, equilibrium and the ICE table, ionic reactions, electrochemistry, titration, industrial processes…) into a **16:9 1920×1080 explainer MP4** with the same voice-over and bilingual subtitles, drawn on a **green chalkboard**. The balanced equation stays pinned in a strip at the top; the demo sits on the left and the slate on the right.
+Turns one chemistry problem (redox balancing and the double-line bridge, amount of substance, equilibrium and the ICE table, ionic reactions, electrochemistry, titration, industrial processes…) into a **16:9 1920×1080 explainer video** (browser preview first, MP4 export optional) with the same voice-over and bilingual subtitles, drawn on a **green chalkboard**. The balanced equation stays pinned in a strip at the top; the demo sits on the left and the slate on the right.
 
 **The equation does the explaining, and conservation is counted on screen**: oxidation numbers rise and fall on a number line, electrons group until the counts match, coefficients fly from the electron row into the equation, atom tallies check off, the double-line bridge shows electron flow, molecule boxes react in the coefficient ratio, and the ICE table fills row by row. `scripts/chem_check.py` checks the balance and atom / charge conservation before any drawing. In `tts`, formulas become names (`HNO3` → 硝酸, `SO4^{2-}` → 硫酸根离子); the `zh` subtitle keeps the formula and renders subscripts.
 
@@ -222,7 +233,7 @@ Turns one chemistry problem (redox balancing and the double-line bridge, amount 
 
 ### Dependency
 
-Same as edu-math-video (shared `GLM_API_KEY` and the same fallback). `scripts/chem_check.py` needs no extra packages — it checks coefficients, atom / charge conservation, and molar mass.
+Same as edu-physics-video (`GLM_API_KEY`, checked first; free engines only when set explicitly with `TTS_ENGINE=edge|say`). `scripts/chem_check.py` needs no extra packages — it checks coefficients, atom / charge conservation, and molar mass.
 
 ### Run the pipeline by hand (without Claude)
 
@@ -279,21 +290,22 @@ edulab/
     │   ├── scripts/generate.py
     │   ├── output/
     │   └── references/          # problem-schema.md · conventions.md
-    ├── edu-math-video/          # math explainer videos — GLM-TTS + canvas animation → MP4
+    ├── edu-math-video/          # math explainer videos — 5 templates × 5 TTS engines → web preview (MP4 optional)
     │   ├── SKILL.md
-    │   ├── template/            # runnable sample project (engine.js · anim.js · build_audio.py · render.mjs)
-    │   ├── shared/              # pron.py + pron.json — shared pronunciation lexicon
-    │   ├── scripts/             # new_video.sh · setup_check.sh · problem image & contact-sheet tools
+    │   ├── lesson/              # board-template engine (chalk/lab/whiteboard/notebook): make.mjs · lesson.json docs & examples
+    │   ├── template/            # handdrawn sample project (engine.js · anim.js · build_audio.py · render.mjs)
+    │   ├── shared/              # tts.py (five TTS engines) + pron.py / pron.json (shared pronunciation lexicon)
+    │   ├── scripts/             # new_video.sh · setup_check.sh · init_env.sh · problem image & contact-sheet tools
     │   ├── examples/cone-parallel/  # solid-geometry example (camera tween · cone unrolling)
     │   └── reference/           # TTS setup · script writing · pronunciation · visual design · animation API
-    ├── edu-physics-video/       # physics explainer videos — GLM-TTS + blueprint canvas → MP4
+    ├── edu-physics-video/       # physics explainer videos — GLM-TTS + blueprint canvas → web preview (MP4 optional)
     │   ├── SKILL.md
     │   ├── template/            # blueprint theme (engine.js · phys.js · anim.js)
     │   ├── shared/
     │   ├── scripts/
     │   ├── examples/laser-curvature/  # geometric-optics example
     │   └── reference/
-    └── edu-chem-video/          # chemistry explainer videos — GLM-TTS + chalkboard canvas → MP4
+    └── edu-chem-video/          # chemistry explainer videos — GLM-TTS + chalkboard canvas → web preview (MP4 optional)
         ├── SKILL.md
         ├── template/            # chalkboard theme (engine.js · chem.js · anim.js)
         ├── shared/
@@ -317,7 +329,8 @@ edulab/
 - **Add a molecule / ion**: add an entry in `lib/molecules.py` (VSEPR geometry + display metadata + internal bonds).
 
 **edu-math-video**
-- **New problem**: never edit `engine.js`; write the per-problem `script.json` / `storyboard.md` / `anim.js`, and add new figure helpers inside `anim.js`.
+- **New problem (board)**: write only `lesson.json` (`intro` + scenes; see `lesson/reference/lesson-schema.md`); don't touch the engine.
+- **New problem (handdrawn)**: never edit `engine.js`; write the per-problem `script.json` / `storyboard.md` / `anim.js`, and add new figure helpers inside `anim.js`.
 - **Fix a reading**: add the word to `shared/pron.json` (`words` / `ok`) — one lexicon shared by every video.
 
 **edu-physics-video**
