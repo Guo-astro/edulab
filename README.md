@@ -138,7 +138,7 @@ python3 lib/reaction_kernel.py                              # kernel built-in se
 
 Turns one math problem (geometry, algebra, functions, motion problems…) into a **16:9 1920×1080 explainer video** with Chinese voice-over. Input is a problem screenshot or plain text. **You get a browser preview first** (plays directly, seekable); exporting the MP4 is optional and asked at the end.
 
-- **Five visual templates**: `handdrawn` (hand-drawn notebook-style canvas animation driven by the narration timeline, bilingual zh + en subtitles, background music) and four board styles — `chalk`, `lab`, `whiteboard`, `notebook` — written as a declarative `lesson.json` (auto board layout, auto-rotating 3D figures with live hidden-line computation; opens by writing the problem on the board and reading it segment by segment, the segment being read changing color; formulas typeset in LaTeX via KaTeX; no need to pick a style up front — switch styles in the preview page and choose at the end).
+- **Five visual templates**: `handdrawn` (hand-drawn notebook-style canvas animation driven by the narration timeline, bilingual zh + en subtitles, background music) and four board styles — `chalk`, `lab`, `whiteboard`, `notebook` — written as a declarative `lesson.json` (auto board layout, auto-rotating 3D figures with live hidden-line computation; opens by writing the problem on the board and reading it segment by segment, the segment being read changing color; formulas typeset in LaTeX via KaTeX; no need to pick a style up front — switch styles live in the preview page; the style is only asked when you export an MP4).
 - **Five TTS engines**: Zhipu **GLM-TTS**, **Doubao** seed-tts 2.0, **MiniMax** (Doubao and MiniMax return word timestamps, so board actions sync to the exact word), plus free fallbacks edge-tts / macOS `say`. Both pipelines share `shared/tts.py`.
 
 **The picture explains the step**: every narration line gets a "point → move → keep" action on the figure (equal segments slide onto each other, congruent triangles overlay, the 3D camera tweens to a top view, a cone unrolls into a sector…) — timed by `S.at(k, f)` (a fraction into line *k*), never by hard-coded seconds. A `motion` check rejects static lines.
@@ -151,7 +151,7 @@ handdrawn: script.json ──build_audio.py──► timeline.json + mix.wav + <
 board:     lesson.json ──make.mjs──► preview.html (plays in a browser) + subtitles.srt ──render.mjs──► video.mp4 (optional)
 ```
 
-**Flow**: step 0 checks that the TTS key works (if not, it creates `.env` for you to fill in and waits) → solve and verify → free preview of layout and pronunciation → real voice-over → open the web preview → ask whether to switch the board style and whether to export an MP4.
+**Flow**: step 0 checks that the TTS key works (if not, it creates `.env` for you to fill in and waits) → solve and verify → free preview of layout and pronunciation → real voice-over → open the web preview (this is the delivery) → ask whether to export an MP4 (no → done; yes → board templates then ask which style to export).
 
 **Guard rails**: the first scene shows the original problem (handdrawn boxes each condition; board styles read it segment by segment); board formulas must be LaTeX (plain-text `4√3`, `x²` are rejected); `tts` text must be speakable Chinese (no digits / math symbols); polyphones are pinned (`长[cháng]`, shared `pron.json` lexicon) and `--check` must report 0 before any paid TTS call; a free `--preview` + contact-sheet review comes before real audio; `--asr` transcribes the audio back to catch misread letters.
 
